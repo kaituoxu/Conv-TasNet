@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-# Created on 2018/12/14
+# Created on 2018/12
 # Author: Kaituo XU
 
 import argparse
@@ -10,10 +10,10 @@ import librosa
 import torch
 
 from data import EvalDataLoader, EvalDataset
-from tasnet import TasNet
+from conv_tasnet import ConvTasNet
 
 
-parser = argparse.ArgumentParser('Separate speech using TasNet')
+parser = argparse.ArgumentParser('Separate speech using Conv-TasNet')
 parser.add_argument('--model_path', type=str, required=True,
                     help='Path to model file created by training')
 parser.add_argument('--mix_dir', type=str, default=None,
@@ -36,7 +36,7 @@ def separate(args):
               "mix_json is ignored.")
 
     # Load model
-    model = TasNet.load_model(args.model_path)
+    model = ConvTasNet.load_model(args.model_path)
     print(model)
     model.eval()
     if args.use_cuda:

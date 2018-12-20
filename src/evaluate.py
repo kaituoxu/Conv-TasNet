@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-# Created on 2018/12/18
+# Created on 2018/12
 # Author: Kaituo XU
 
 import argparse
@@ -13,10 +13,10 @@ import torch
 
 from data import AudioDataLoader, AudioDataset
 from pit_criterion import cal_loss
-from tasnet import TasNet
+from conv_tasnet import ConvTasNet
 
 
-parser = argparse.ArgumentParser('Evaluate separation performance using TasNet')
+parser = argparse.ArgumentParser('Evaluate separation performance using Conv-TasNet')
 parser.add_argument('--model_path', type=str, required=True,
                     help='Path to model file created by training')
 parser.add_argument('--data_dir', type=str, required=True,
@@ -37,7 +37,7 @@ def evaluate(args):
     total_cnt = 0
 
     # Load model
-    model = TasNet.load_model(args.model_path)
+    model = ConvTasNet.load_model(args.model_path)
     print(model)
     model.eval()
     if args.use_cuda:

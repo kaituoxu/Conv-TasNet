@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Created on 2018/12/10
+# Created on 2018/12
 # Author: Kaituo XU
 
 stage=2
@@ -8,22 +8,25 @@ stage=2
 ngpu=1
 dumpdir=data
 
-# -- START TasNet Config
+# -- START Conv-TasNet Config
 sample_rate=8000
 # Network config
-L=40
-N=500
-hidden_size=500
-num_layers=4
-bidirectional=1
-nspk=2
+N=256
+L=20
+B=256
+H=512
+P=3
+X=8
+R=4
+C=2
+norm_type=gLN
 # Training config
 epochs=30
-shuffle=0
 half_lr=0
 early_stop=0
 max_norm=5
 # minibatch
+shuffle=0
 batch_size=128
 num_workers=4
 # optimizer
@@ -36,8 +39,11 @@ checkpoint=0
 print_freq=10
 visdom=0
 visdom_epoch=0
-visdom_id="TasNet Training"
-# -- END TasNet Config
+visdom_id="Conv-TasNet Training"
+# evaluate
+use_cuda=0
+cal_sdr=1
+# -- END Conv-TasNet Config
 
 # exp tag
 tag="" # tag for managing experiments.
@@ -78,7 +84,7 @@ fi
 
 
 if [ -z ${tag} ]; then
-  expdir=exp/train_r${sample_rate}_L${L}_N${N}_h${hidden_size}_l${num_layers}_bi${bidirectional}_C${nspk}_epoch${epochs}_half${half_lr}_norm${max_norm}_bs${batch_size}_worker${num_workers}_${optimizer}_lr${lr}_mmt${momentum}_l2${l2}
+  expdir=exp/train_r${sample_rate}_N${N}_L${L}_B${B}_H${H}_P${P}_X${X}_R${R}_C${C}_${norm_type}_epoch${epochs}_half${half_lr}_norm${max_norm}_bs${batch_size}_worker${num_workers}_${optimizer}_lr${lr}_mmt${momentum}_l2${l2}
 else
   expdir=exp/train_${tag}
 fi
@@ -90,12 +96,15 @@ if [ $stage -le 2 ]; then
     --train_dir $dumpdir/tr \
     --valid_dir $dumpdir/cv \
     --sample_rate $sample_rate \
-    --L $L \
     --N $N \
-    --hidden_size $hidden_size \
-    --num_layers $num_layers \
-    --bidirectional $bidirectional \
-    --nspk $nspk \
+    --L $L \
+    --B $B \
+    --H $H \
+    --P $P \
+    --X $X \
+    --R $R \
+    --C $C \
+    --norm_type $norm_type \
     --epochs $epochs \
     --half_lr $half_lr \
     --early_stop $early_stop \
@@ -122,10 +131,10 @@ if [ $stage -le 3 ]; then
     evaluate.py \
     --model_path ${expdir}/final.pth.tar \
     --data_dir $dumpdir/tt \
-    --cal_sdr 1 \
-    --use_cuda 0 \
+    --cal_sdr $cal_sdr \
+    --use_cuda $use_cuda \
     --sample_rate $sample_rate \
-    --batch_size 10
+    --batch_size $batch_size
 fi
 
 
@@ -137,7 +146,7 @@ if [ $stage -le 4 ]; then
     --model_path ${expdir}/final.pth.tar \
     --mix_json $dumpdir/tt/mix.json \
     --out_dir ${separate_dir} \
-    --use_cuda 0 \
+    --use_cuda $use_cuda \
     --sample_rate $sample_rate \
-    --batch_size 10
+    --batch_size $batch_size
 fi

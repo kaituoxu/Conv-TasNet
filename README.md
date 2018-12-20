@@ -1,5 +1,5 @@
-# TasNet: Time-domain Audio Separation Network
-A PyTorch implementation of "TasNet: Time-domain Audio Separation Network for Real-time, single-channel speech separation", published in ICASSP2018, by Yi Luo and Nima Mesgarani.
+# Conv-TasNet
+A PyTorch implementation of ["TasNet: Surpassing Ideal Time-Frequency Masking for Speech Separation"](https://arxiv.org/abs/1809.07454), by Yi Luo and Nima Mesgarani.
 
 # Install
 - PyTorch 0.4.1+

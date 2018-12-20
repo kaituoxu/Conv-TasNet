@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-# Created on 2018/12/14
+# Created on 2018/12
 # Author: Kaituo XU
 
 import argparse
@@ -9,11 +9,12 @@ import torch
 
 from data import AudioDataLoader, AudioDataset
 from solver import Solver
-from tasnet import TasNet
+from conv_tasnet import ConvTasNet
+
 
 parser = argparse.ArgumentParser(
-    "Time-domain Audio Separation Network (TasNet) with Permutation Invariant "
-    "Training")
+    "Fully-Convolutional Time-domain Audio Separation Network (Conv-TasNet) "
+    "with Permutation Invariant Training")
 # General config
 # Task related
 parser.add_argument('--train_dir', type=str, default=None,
@@ -23,18 +24,24 @@ parser.add_argument('--valid_dir', type=str, default=None,
 parser.add_argument('--sample_rate', default=8000, type=int,
                     help='Sample rate')
 # Network architecture
-parser.add_argument('--L', default=40, type=int,
-                    help='Segment length (40=5ms at 8kHZ)')
-parser.add_argument('--N', default=500, type=int,
-                    help='The number of basis signals')
-parser.add_argument('--hidden_size', default=500, type=int,
-                    help='Number of LSTM hidden units')
-parser.add_argument('--num_layers', default=4, type=int,
-                    help='Number of LSTM layers')
-parser.add_argument('--bidirectional', default=1, type=int,
-                    help='Whether use bidirectional LSTM')
-parser.add_argument('--nspk', default=2, type=int,
-                    help='Number of speaker')
+parser.add_argument('--N', default=256, type=int,
+                    help='Number of filters in autoencoder')
+parser.add_argument('--L', default=20, type=int,
+                    help='Length of the filters in samples (40=5ms at 8kHZ)')
+parser.add_argument('--B', default=256, type=int,
+                    help='Number of channels in bottleneck 1 × 1-conv block')
+parser.add_argument('--H', default=512, type=int,
+                    help='Number of channels in convolutional blocks')
+parser.add_argument('--P', default=3, type=int,
+                    help='Kernel size in convolutional blocks')
+parser.add_argument('--X', default=8, type=int,
+                    help='Number of convolutional blocks in each repeat')
+parser.add_argument('--R', default=4, type=int,
+                    help='Number of repeats')
+parser.add_argument('--C', default=2, type=int,
+                    help='Number of speakers')
+parser.add_argument('--norm_type', default='gLN', type=str,
+                    choices=['gLN', 'cLN', 'BN'], help='Layer norm type')
 # Training config
 parser.add_argument('--epochs', default=30, type=int,
                     help='Number of maximum epochs')
@@ -47,7 +54,7 @@ parser.add_argument('--max_norm', default=5, type=float,
 # minibatch
 parser.add_argument('--shuffle', default=0, type=int,
                     help='reshuffle the data at every epoch')
-parser.add_argument('--batch_size', '-b', default=128, type=int,
+parser.add_argument('--batch_size', default=128, type=int,
                     help='Batch size')
 parser.add_argument('--num_workers', default=4, type=int,
                     help='Number of workers to generate minibatch')
@@ -96,8 +103,8 @@ def main(args):
                                 num_workers=args.num_workers)
     data = {'tr_loader': tr_loader, 'cv_loader': cv_loader}
     # model
-    model = TasNet(args.L, args.N, args.hidden_size, args.num_layers,
-                   bidirectional=args.bidirectional, nspk=args.nspk)
+    model = ConvTasNet(args.N, args.L, args.B, args.H, args.P, args.X, args.R,
+                       args.C, norm_type=args.norm_type)
     print(model)
     model.cuda()
     # optimizer
