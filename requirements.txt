@@ -1,0 +1,3 @@
+librosa
+mir_eval
+visdom
