@@ -11,23 +11,23 @@ dumpdir=data
 # -- START Conv-TasNet Config
 sample_rate=8000
 # Network config
-N=256
-L=20
-B=256
-H=512
+N=128
+L=40
+B=64
+H=128
 P=3
-X=8
-R=4
+X=7
+R=2
 C=2
-norm_type=gLN
+norm_type=BN
 # Training config
-epochs=30
+epochs=100
 half_lr=0
 early_stop=0
 max_norm=5
 # minibatch
 shuffle=0
-batch_size=128
+batch_size=2
 num_workers=4
 # optimizer
 optimizer=adam
@@ -93,8 +93,8 @@ if [ $stage -le 2 ]; then
   echo "Stage 2: Training"
   ${cuda_cmd} --gpu ${ngpu} ${expdir}/train.log \
     train.py \
-    --train_dir $dumpdir/tr \
-    --valid_dir $dumpdir/cv \
+    --train_dir $dumpdir/cv10 \
+    --valid_dir $dumpdir/cv10 \
     --sample_rate $sample_rate \
     --N $N \
     --L $L \
@@ -130,7 +130,7 @@ if [ $stage -le 3 ]; then
   ${decode_cmd} --gpu ${ngpu} ${expdir}/evaluate.log \
     evaluate.py \
     --model_path ${expdir}/final.pth.tar \
-    --data_dir $dumpdir/tt \
+    --data_dir $dumpdir/cv10 \
     --cal_sdr $cal_sdr \
     --use_cuda $use_cuda \
     --sample_rate $sample_rate \
@@ -139,12 +139,12 @@ fi
 
 
 if [ $stage -le 4 ]; then
-  echo "Stage 4: Separate speech using TasNet"
+  echo "Stage 4: Separate speech using Conv-TasNet"
   separate_dir=${expdir}/separate
   ${decode_cmd} --gpu ${ngpu} ${separate_dir}/separate.log \
     separate.py \
     --model_path ${expdir}/final.pth.tar \
-    --mix_json $dumpdir/tt/mix.json \
+    --mix_json $dumpdir/cv10/mix.json \
     --out_dir ${separate_dir} \
     --use_cuda $use_cuda \
     --sample_rate $sample_rate \

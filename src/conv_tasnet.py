@@ -25,10 +25,15 @@ class ConvTasNet(nn.Module):
         super(ConvTasNet, self).__init__()
         # Hyper-parameter
         self.N, self.L, self.B, self.H, self.P, self.X, self.R, self.C = N, L, B, H, P, X, R, C
+        self.norm_type = norm_type
         # Components
         self.encoder = Encoder(L, N)
         self.separator = TemporalConvNet(N, B, H, P, X, R, C, norm_type)
         self.decoder = Decoder(N, L)
+        # init
+        for p in self.parameters():
+            if p.dim() > 1:
+                nn.init.xavier_normal_(p)
 
     def forward(self, mixture):
         """
@@ -52,7 +57,8 @@ class ConvTasNet(nn.Module):
     @classmethod
     def load_model_from_package(cls, package):
         model = cls(package['N'], package['L'], package['B'], package['H'],
-                    package['P'], package['X'], package['R'], package['C'])
+                    package['P'], package['X'], package['R'], package['C'],
+                    norm_type=package['norm_type'])
         model.load_state_dict(package['state_dict'])
         return model
 
@@ -62,6 +68,7 @@ class ConvTasNet(nn.Module):
             # hyper-parameter
             'N': model.N, 'L': model.L, 'B': model.B, 'H': model.H,
             'P': model.P, 'X': model.X, 'R': model.R, 'C': model.C,
+            'norm_type': model.norm_type,
             # state
             'state_dict': model.state_dict(),
             'optim_dict': optimizer.state_dict(),
@@ -142,6 +149,7 @@ class TemporalConvNet(nn.Module):
         super(TemporalConvNet, self).__init__()
         # Hyper-parameter
         self.N, self.B, self.H, self.P, self.X, self.R, self.C = N, B, H, P, X, R, C
+        self.norm_type = norm_type
         # Components
         # [M, N, K] -> [M, N, K]
         layer_norm = ChannelwiseLayerNorm(N)
@@ -192,7 +200,7 @@ class TemporalBlock(nn.Module):
         norm = chose_norm(norm_type, out_channels)
         # [M, H, K] -> [M, B, K]
         dsconv = DepthwiseSeparableConv(out_channels, in_channels, kernel_size,
-                                             stride, padding, dilation, norm_type)
+                                        stride, padding, dilation, norm_type)
         # Put together
         self.net = nn.Sequential(conv1x1, prelu, norm, dsconv)
 
@@ -205,7 +213,8 @@ class TemporalBlock(nn.Module):
         """
         residual = x
         out = self.net(x)
-        return F.relu(out + residual)
+        return out + residual  # look like w/o F.relu is better than w/ F.relu
+        # return F.relu(out + residual)
 
 
 class DepthwiseSeparableConv(nn.Module):
