@@ -144,9 +144,9 @@ class TemporalConvNet(nn.Module):
         self.N, self.B, self.H, self.P, self.X, self.R, self.C = N, B, H, P, X, R, C
         # Components
         # [M, N, K] -> [M, N, K]
-        self.layer_norm = ChannelwiseLayerNorm(N)
+        layer_norm = ChannelwiseLayerNorm(N)
         # [M, N, K] -> [M, B, K]
-        self.bottleneck_conv1x1 = nn.Conv1d(N, B, 1, bias=False)
+        bottleneck_conv1x1 = nn.Conv1d(N, B, 1, bias=False)
         # [M, B, K] -> [M, B, K]
         repeats = []
         for r in range(R):
@@ -157,14 +157,14 @@ class TemporalConvNet(nn.Module):
                                          padding=(P-1)*dilation,
                                          dilation=dilation, norm_type=norm_type)]
             repeats += [nn.Sequential(*blocks)]
-        self.temporal_conv_net = nn.Sequential(*repeats)
+        temporal_conv_net = nn.Sequential(*repeats)
         # [M, B, K] -> [M, C*N, K]
-        self.mask_conv1x1 = nn.Conv1d(B, C*N, 1, bias=False)
+        mask_conv1x1 = nn.Conv1d(B, C*N, 1, bias=False)
         # Put together
-        self.network = nn.Sequential(self.layer_norm,
-                                     self.bottleneck_conv1x1,
-                                     self.temporal_conv_net,
-                                     self.mask_conv1x1)
+        self.network = nn.Sequential(layer_norm,
+                                     bottleneck_conv1x1,
+                                     temporal_conv_net,
+                                     mask_conv1x1)
 
     def forward(self, mixture_w):
         """
@@ -187,15 +187,14 @@ class TemporalBlock(nn.Module):
                  stride, padding, dilation, norm_type="gLN"):
         super(TemporalBlock, self).__init__()
         # [M, B, K] -> [M, H, K]
-        self.conv1x1 = nn.Conv1d(in_channels, out_channels, 1, bias=False)
-        self.prelu = nn.PReLU()
-        self.norm = chose_norm(norm_type, out_channels)
+        conv1x1 = nn.Conv1d(in_channels, out_channels, 1, bias=False)
+        prelu = nn.PReLU()
+        norm = chose_norm(norm_type, out_channels)
         # [M, H, K] -> [M, B, K]
-        self.dsconv = DepthwiseSeparableConv(out_channels, in_channels, kernel_size,
+        dsconv = DepthwiseSeparableConv(out_channels, in_channels, kernel_size,
                                              stride, padding, dilation, norm_type)
         # Put together
-        self.net = nn.Sequential(self.conv1x1, self.prelu, self.norm,
-                                 self.dsconv)
+        self.net = nn.Sequential(conv1x1, prelu, norm, dsconv)
 
     def forward(self, x):
         """
@@ -215,18 +214,18 @@ class DepthwiseSeparableConv(nn.Module):
         super(DepthwiseSeparableConv, self).__init__()
         # Use `groups` option to implement depthwise convolution
         # [M, H, K] -> [M, H, K]
-        self.depthwise_conv = nn.Conv1d(in_channels, in_channels, kernel_size,
-                                        stride=stride, padding=padding,
-                                        dilation=dilation, groups=in_channels,
-                                        bias=False)
-        self.chomp = Chomp1d(padding)
-        self.prelu = nn.PReLU()
-        self.norm = chose_norm(norm_type, in_channels)
+        depthwise_conv = nn.Conv1d(in_channels, in_channels, kernel_size,
+                                   stride=stride, padding=padding,
+                                   dilation=dilation, groups=in_channels,
+                                   bias=False)
+        chomp = Chomp1d(padding)
+        prelu = nn.PReLU()
+        norm = chose_norm(norm_type, in_channels)
         # [M, H, K] -> [M, B, K]
-        self.pointwise_conv = nn.Conv1d(in_channels, out_channels, 1, bias=False)
+        pointwise_conv = nn.Conv1d(in_channels, out_channels, 1, bias=False)
         # Put together
-        self.net = nn.Sequential(self.depthwise_conv, self.chomp, self.prelu, self.norm,
-                                 self.pointwise_conv)
+        self.net = nn.Sequential(depthwise_conv, chomp, prelu, norm,
+                                 pointwise_conv)
 
     def forward(self, x):
         """
@@ -339,7 +338,7 @@ if __name__ == "__main__":
     est_source = decoder(mixture_w, est_mask)
     print('est_source', est_source)
 
-    # test TasNet
+    # test Conv-TasNet
     conv_tasnet = ConvTasNet(N, L, B, H, P, X, R, C, norm_type=norm_type)
     est_source = conv_tasnet(mixture)
     print('est_source', est_source)

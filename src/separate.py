@@ -59,7 +59,7 @@ def separate(args):
             if args.use_cuda:
                 mixture, mix_lengths = mixture.cuda(), mix_lengths.cuda()
             # Forward
-            estimate_source = model(mixture, mix_lengths)  # [B, C, K, L]
+            estimate_source = model(mixture)  # [B, C, K, L]
             # Remove padding and flat
             flat_estimate = remove_pad_and_flat(estimate_source, mix_lengths)
             mixture = remove_pad_and_flat(mixture, mix_lengths)
