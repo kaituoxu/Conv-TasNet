@@ -21,6 +21,7 @@ R=2
 C=2
 norm_type=BN
 # Training config
+use_cuda=1
 epochs=100
 half_lr=0
 early_stop=0
@@ -41,7 +42,7 @@ visdom=0
 visdom_epoch=0
 visdom_id="Conv-TasNet Training"
 # evaluate
-use_cuda=0
+ev_use_cuda=0
 cal_sdr=1
 # -- END Conv-TasNet Config
 
@@ -84,7 +85,7 @@ fi
 
 
 if [ -z ${tag} ]; then
-  expdir=exp/train_r${sample_rate}_N${N}_L${L}_B${B}_H${H}_P${P}_X${X}_R${R}_C${C}_${norm_type}_epoch${epochs}_half${half_lr}_norm${max_norm}_bs${batch_size}_worker${num_workers}_${optimizer}_lr${lr}_mmt${momentum}_l2${l2}
+  expdir=exp/train_r${sample_rate}_N${N}_L${L}_B${B}_H${H}_P${P}_X${X}_R${R}_C${C}_${norm_type}_epoch${epochs}_half${half_lr}_norm${max_norm}_bs${batch_size}_worker${num_workers}_${optimizer}_lr${lr}_mmt${momentum}_l2${l2}_cv10
 else
   expdir=exp/train_${tag}
 fi
@@ -105,6 +106,7 @@ if [ $stage -le 2 ]; then
     --R $R \
     --C $C \
     --norm_type $norm_type \
+    --use_cuda $use_cuda \
     --epochs $epochs \
     --half_lr $half_lr \
     --early_stop $early_stop \
@@ -132,7 +134,7 @@ if [ $stage -le 3 ]; then
     --model_path ${expdir}/final.pth.tar \
     --data_dir $dumpdir/cv10 \
     --cal_sdr $cal_sdr \
-    --use_cuda $use_cuda \
+    --use_cuda $ev_use_cuda \
     --sample_rate $sample_rate \
     --batch_size $batch_size
 fi
@@ -146,7 +148,7 @@ if [ $stage -le 4 ]; then
     --model_path ${expdir}/final.pth.tar \
     --mix_json $dumpdir/cv10/mix.json \
     --out_dir ${separate_dir} \
-    --use_cuda $use_cuda \
+    --use_cuda $ev_use_cuda \
     --sample_rate $sample_rate \
     --batch_size $batch_size
 fi

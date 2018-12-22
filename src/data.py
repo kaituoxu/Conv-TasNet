@@ -14,8 +14,8 @@ Input:
     Mixtured WJS0 tr, cv and tt path
 Output:
     One batch at a time.
-    Each inputs's shape is B x K x L (i.e. B x T x D in ASR way)
-    Each targets's shape is B x C x K x L
+    Each inputs's shape is B x T
+    Each targets's shape is B x C x T
 """
 
 import json
@@ -30,8 +30,7 @@ import librosa
 
 class AudioDataset(data.Dataset):
 
-    def __init__(self, json_dir, batch_size,
-                 sample_rate=8000, L=int(8000*0.005)):
+    def __init__(self, json_dir, batch_size, sample_rate=8000):
         """
         Args:
             json_dir: directory including mix.json, s1.json and s2.json
@@ -62,7 +61,7 @@ class AudioDataset(data.Dataset):
             minibatch.append([sorted_mix_infos[start:end],
                               sorted_s1_infos[start:end],
                               sorted_s2_infos[start:end],
-                              sample_rate, L])
+                              sample_rate])
             if end == len(sorted_mix_infos):
                 break
             start = end
@@ -90,14 +89,13 @@ def _collate_fn(batch):
     Args:
         batch: list, len(batch) = 1. See AudioDataset.__getitem__()
     Returns:
-        mixtures_pad: B x K x L, torch.Tensor
+        mixtures_pad: B x T, torch.Tensor
         ilens : B, torch.Tentor
-        sources_pad: B x C x K x L, torch.Tensor
+        sources_pad: B x C x T, torch.Tensor
     """
     # batch should be located in list
     assert len(batch) == 1
-    batch = load_mixtures_and_sources(batch[0])
-    mixtures, sources = batch
+    mixtures, sources = load_mixtures_and_sources(batch[0])
 
     # get batch of lengths of input sequences
     ilens = np.array([mix.shape[0] for mix in mixtures])
@@ -109,8 +107,8 @@ def _collate_fn(batch):
     ilens = torch.from_numpy(ilens)
     sources_pad = pad_list([torch.from_numpy(s).float()
                             for s in sources], pad_value)
-    # N x K x L x C -> N x C x K x L
-    sources_pad = sources_pad.permute((0, 3, 1, 2)).contiguous()
+    # N x T x C -> N x C x T
+    sources_pad = sources_pad.permute((0, 2, 1)).contiguous()
     return mixtures_pad, ilens, sources_pad
 
 
@@ -119,8 +117,7 @@ from preprocess import preprocess_one_dir
 
 class EvalDataset(data.Dataset):
 
-    def __init__(self, mix_dir, mix_json, batch_size,
-                 sample_rate=8000, L=int(8000*0.005)):
+    def __init__(self, mix_dir, mix_json, batch_size, sample_rate=8000):
         """
         Args:
             mix_dir: directory including mixture wav files
@@ -145,7 +142,7 @@ class EvalDataset(data.Dataset):
         while True:
             end = min(len(sorted_mix_infos), start + batch_size)
             minibatch.append([sorted_mix_infos[start:end],
-                              sample_rate, L])
+                              sample_rate])
             if end == len(sorted_mix_infos):
                 break
             start = end
@@ -173,7 +170,7 @@ def _collate_fn_eval(batch):
     Args:
         batch: list, len(batch) = 1. See AudioDataset.__getitem__()
     Returns:
-        mixtures_pad: B x K x L, torch.Tensor
+        mixtures_pad: B x T, torch.Tensor
         ilens : B, torch.Tentor
         filenames: a list contain B strings
     """
@@ -195,13 +192,14 @@ def _collate_fn_eval(batch):
 # ------------------------------ utils ------------------------------------
 def load_mixtures_and_sources(batch):
     """
+    Each info include wav path and wav duration.
     Returns:
-        mixtures: a list containing B items, each item is K x L np.ndarray
-        sources: a list containing B items, each item is K x L x C np.ndarray
-        K varies from item to item.
+        mixtures: a list containing B items, each item is T np.ndarray
+        sources: a list containing B items, each item is T x C np.ndarray
+        T varies from item to item.
     """
     mixtures, sources = [], []
-    mix_infos, s1_infos, s2_infos, sample_rate, L = batch
+    mix_infos, s1_infos, s2_infos, sample_rate = batch
     # for each utterance
     for mix_info, s1_info, s2_info in zip(mix_infos, s1_infos, s2_infos):
         mix_path = mix_info[0]
@@ -212,21 +210,8 @@ def load_mixtures_and_sources(batch):
         mix, _ = librosa.load(mix_path, sr=sample_rate)
         s1, _ = librosa.load(s1_path, sr=sample_rate)
         s2, _ = librosa.load(s2_path, sr=sample_rate)
-        # Generate inputs and targets
-        K = int(np.ceil(len(mix) / L))
-        # padding a little. mix_len + K > pad_len >= mix_len
-        pad_len = K * L
-        pad_mix = np.concatenate([mix, np.zeros([pad_len - len(mix)])])
-        pad_s1 = np.concatenate([s1, np.zeros([pad_len - len(s1)])])
-        pad_s2 = np.concatenate([s2, np.zeros([pad_len - len(s2)])])
-        # reshape
-        mix = np.reshape(pad_mix, [K, L])
-        s1 = np.reshape(pad_s1, [K, L])
-        s2 = np.reshape(pad_s2, [K, L])
         # merge s1 and s2
-        s = np.dstack((s1, s2))  # K x L x C, C = 2
-        # s = np.transpose(s, (2, 0, 1))  # C x K x L
-
+        s = np.dstack((s1, s2))[0]  # T x C, C = 2
         mixtures.append(mix)
         sources.append(s)
     return mixtures, sources
@@ -235,24 +220,17 @@ def load_mixtures_and_sources(batch):
 def load_mixtures(batch):
     """
     Returns:
-        mixtures: a list containing B items, each item is K x L np.ndarray
+        mixtures: a list containing B items, each item is T np.ndarray
         filenames: a list containing B strings
-        K varies from item to item.
+        T varies from item to item.
     """
     mixtures, filenames = [], []
-    mix_infos, sample_rate, L = batch
+    mix_infos, sample_rate = batch
     # for each utterance
     for mix_info in mix_infos:
         mix_path = mix_info[0]
         # read wav file
         mix, _ = librosa.load(mix_path, sr=sample_rate)
-        # Generate inputs and targets
-        K = int(np.ceil(len(mix) / L))
-        # padding a little. mix_len + K > pad_len >= mix_len
-        pad_len = K * L
-        pad_mix = np.concatenate([mix, np.zeros([pad_len - len(mix)])])
-        # reshape
-        mix = np.reshape(pad_mix, [K, L])
         mixtures.append(mix)
         filenames.append(mix_path)
     return mixtures, filenames

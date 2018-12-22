@@ -14,6 +14,7 @@ import torch
 from data import AudioDataLoader, AudioDataset
 from pit_criterion import cal_loss
 from conv_tasnet import ConvTasNet
+from utils import remove_pad
 
 
 parser = argparse.ArgumentParser('Evaluate separation performance using Conv-TasNet')
@@ -45,7 +46,7 @@ def evaluate(args):
 
     # Load data
     dataset = AudioDataset(args.data_dir, args.batch_size,
-                           sample_rate=args.sample_rate, L=model.L)
+                           sample_rate=args.sample_rate)
     data_loader = AudioDataLoader(dataset, batch_size=1, num_workers=2)
 
     with torch.no_grad():
@@ -57,15 +58,15 @@ def evaluate(args):
                 mixture_lengths = mixture_lengths.cuda()
                 padded_source = padded_source.cuda()
             # Forward
-            estimate_source = model(padded_mixture)  # [B, C, K, L]
+            estimate_source = model(padded_mixture)  # [B, C, T]
             loss, max_snr, estimate_source, reorder_estimate_source = \
                 cal_loss(padded_source, estimate_source, mixture_lengths)
             # Remove padding and flat
-            mixture = remove_pad_and_flat(padded_mixture, mixture_lengths)
-            source = remove_pad_and_flat(padded_source, mixture_lengths)
+            mixture = remove_pad(padded_mixture, mixture_lengths)
+            source = remove_pad(padded_source, mixture_lengths)
             # NOTE: use reorder estimate source
-            estimate_source = remove_pad_and_flat(reorder_estimate_source,
-                                                  mixture_lengths)
+            estimate_source = remove_pad(reorder_estimate_source,
+                                         mixture_lengths)
             # for each utterance
             for mix, src_ref, src_est in zip(mixture, source, estimate_source):
                 print("Utt", total_cnt + 1)
@@ -139,26 +140,6 @@ def cal_SISNR(ref_sig, out_sig, eps=1e-8):
     ratio = np.sum(proj ** 2) / (np.sum(noise ** 2) + eps)
     sisnr = 10 * np.log(ratio + eps) / np.log(10.0)
     return sisnr
-
-            
-def remove_pad_and_flat(inputs, inputs_lengths):
-    """
-    Args:
-        inputs: torch.Tensor, [B, C, K, L] or [B, K, L]
-        inputs_lengths: torch.Tensor, [B]
-    Returns:
-        results: a list containing B items, each item is [C, T], T varies
-    """
-    results = []
-    dim = inputs.dim()
-    if dim == 4:
-        C = inputs.size(1)
-    for input, length in zip(inputs, inputs_lengths):
-        if dim == 4: # [B, C, K, L]
-            results.append(input[:,:length].view(C, -1).cpu().numpy())
-        elif dim == 3:  # [B, K, L]
-            results.append(input[:length].view(-1).cpu().numpy())
-    return results
 
 
 if __name__ == '__main__':

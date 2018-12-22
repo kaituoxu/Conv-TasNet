@@ -43,6 +43,8 @@ parser.add_argument('--C', default=2, type=int,
 parser.add_argument('--norm_type', default='gLN', type=str,
                     choices=['gLN', 'cLN', 'BN'], help='Layer norm type')
 # Training config
+parser.add_argument('--use_cuda', type=int, default=1,
+                    help='Whether use GPU')
 parser.add_argument('--epochs', default=30, type=int,
                     help='Number of maximum epochs')
 parser.add_argument('--half_lr', dest='half_lr', default=0, type=int,
@@ -92,9 +94,9 @@ def main(args):
     # Construct Solver
     # data
     tr_dataset = AudioDataset(args.train_dir, args.batch_size,
-                              sample_rate=args.sample_rate, L=args.L)
+                              sample_rate=args.sample_rate)
     cv_dataset = AudioDataset(args.valid_dir, args.batch_size,
-                              sample_rate=args.sample_rate, L=args.L)
+                              sample_rate=args.sample_rate)
     tr_loader = AudioDataLoader(tr_dataset, batch_size=1,
                                 shuffle=args.shuffle,
                                 num_workers=args.num_workers)
@@ -106,7 +108,8 @@ def main(args):
     model = ConvTasNet(args.N, args.L, args.B, args.H, args.P, args.X, args.R,
                        args.C, norm_type=args.norm_type)
     print(model)
-    model.cuda()
+    if args.use_cuda:
+        model.cuda()
     # optimizer
     if args.optimizer == 'sgd':
         optimizier = torch.optim.SGD(model.parameters(),
@@ -130,3 +133,4 @@ if __name__ == '__main__':
     args = parser.parse_args()
     print(args)
     main(args)
+

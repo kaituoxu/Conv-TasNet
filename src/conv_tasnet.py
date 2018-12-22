@@ -5,6 +5,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from utils import overlap_and_add
+
 EPS = 1e-8
 
 
@@ -38,13 +40,18 @@ class ConvTasNet(nn.Module):
     def forward(self, mixture):
         """
         Args:
-            mixture: [M, K, L]
+            mixture: [M, T], M is batch size, T is #samples
         Returns:
-            est_source: [M, C, K, L]
+            est_source: [M, C, T]
         """
         mixture_w = self.encoder(mixture)
         est_mask = self.separator(mixture_w)
         est_source = self.decoder(mixture_w, est_mask)
+
+        # T changed after conv1d in encoder, fix it here
+        T_origin = mixture.size(-1)
+        T_conv = est_source.size(-1)
+        est_source = F.pad(est_source, (0, T_origin - T_conv))
         return est_source
 
     @classmethod
@@ -88,24 +95,19 @@ class Encoder(nn.Module):
         # Hyper-parameter
         self.L, self.N = L, N
         # Components
-        # Maybe we can impl 1-D conv by nn.Linear()?
-        self.conv1d_U = nn.Conv1d(L, N, kernel_size=1, bias=False)
+        # 50% overlap
+        self.conv1d_U = nn.Conv1d(1, N, kernel_size=L, stride=L // 2, bias=False)
 
     def forward(self, mixture):
         """
         Args:
-            mixture: [M, K, L], M is batch size
+            mixture: [M, T], M is batch size, T is #samples
         Returns:
-            mixture_w: [M, K, N]
+            mixture_w: [M, K, N], where K = (T-L)/(L/2)+1 = 2T/L-1
         """
-        mixture = mixture.permute((0, 2, 1)).contiguous()  # [M, L, K]
+        mixture = torch.unsqueeze(mixture, 1)  # [M, 1, T]
         mixture_w = F.relu(self.conv1d_U(mixture))  # [M, N, K]
         mixture_w = mixture_w.permute((0, 2, 1)).contiguous()
-        ### Another implementation
-        # M, K, L = mixture.size()
-        # mixture = torch.unsqueeze(mixture.view(-1, L), 2)  # [M*K, L, 1]
-        # mixture_w = F.relu(self.conv1d_U(mixture))         # [M*K, N, 1]
-        # mixture_w = mixture_w.view(B, K, self.N)   # [M, K, N]
         return mixture_w
 
 
@@ -123,13 +125,14 @@ class Decoder(nn.Module):
             mixture_w: [M, K, N]
             est_mask: [M, K, C, N]
         Returns:
-            est_source: [M, C, K, L]
+            est_source: [M, C, T]
         """
         # D = W * M
         source_w = torch.unsqueeze(mixture_w, 2) * est_mask  # M x K x C x N
         # S = DV
         est_source = self.basis_signals(source_w)  # M x K x C x L
         est_source = est_source.permute((0, 2, 1, 3)).contiguous()  # M x C x K x L
+        est_source = overlap_and_add(est_source, self.L//2) # M x C x T
         return est_source
 
 
@@ -325,9 +328,10 @@ class GlobalLayerNorm(nn.Module):
 
 if __name__ == "__main__":
     torch.manual_seed(123)
-    M, K, N, L = 2, 3, 3, 4
+    M, N, L, T = 2, 3, 4, 12
+    K = 2*T//L-1
     B, H, P, X, R, C, norm_type = 2, 3, 2, 3, 2, 2, "gLN"
-    mixture = torch.randint(3, (M, K, L))
+    mixture = torch.randint(3, (M, T))
     # test Encoder
     encoder = Encoder(L, N)
     encoder.conv1d_U.weight.data = torch.randint(2, encoder.conv1d_U.weight.size())
@@ -335,6 +339,7 @@ if __name__ == "__main__":
     print('mixture', mixture)
     print('U', encoder.conv1d_U.weight)
     print('mixture_w', mixture_w)
+    print('mixture_w size', mixture_w.size())
 
     # test TemporalConvNet
     separator = TemporalConvNet(N, B, H, P, X, R, C, norm_type=norm_type)
@@ -351,3 +356,5 @@ if __name__ == "__main__":
     conv_tasnet = ConvTasNet(N, L, B, H, P, X, R, C, norm_type=norm_type)
     est_source = conv_tasnet(mixture)
     print('est_source', est_source)
+    print('est_source size', est_source.size())
+

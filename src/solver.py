@@ -18,6 +18,7 @@ class Solver(object):
         self.optimizer = optimizer
 
         # Training config
+        self.use_cuda = args.use_cuda
         self.epochs = args.epochs
         self.half_lr = args.half_lr
         self.early_stop = args.early_stop
@@ -168,9 +169,10 @@ class Solver(object):
 
         for i, (data) in enumerate(data_loader):
             padded_mixture, mixture_lengths, padded_source = data
-            padded_mixture = padded_mixture.cuda()
-            mixture_lengths = mixture_lengths.cuda()
-            padded_source = padded_source.cuda()
+            if self.use_cuda:
+                padded_mixture = padded_mixture.cuda()
+                mixture_lengths = mixture_lengths.cuda()
+                padded_source = padded_source.cuda()
             estimate_source = self.model(padded_mixture)
             loss, max_snr, estimate_source, reorder_estimate_source = \
                 cal_loss(padded_source, estimate_source, mixture_lengths)

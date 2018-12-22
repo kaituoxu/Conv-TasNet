@@ -11,6 +11,7 @@ import torch
 
 from data import EvalDataLoader, EvalDataset
 from conv_tasnet import ConvTasNet
+from utils import remove_pad
 
 
 parser = argparse.ArgumentParser('Separate speech using Conv-TasNet')
@@ -45,7 +46,7 @@ def separate(args):
     # Load data
     eval_dataset = EvalDataset(args.mix_dir, args.mix_json,
                                batch_size=args.batch_size,
-                               sample_rate=args.sample_rate, L=model.L)
+                               sample_rate=args.sample_rate)
     eval_loader =  EvalDataLoader(eval_dataset, batch_size=1)
     os.makedirs(args.out_dir, exist_ok=True)
 
@@ -59,10 +60,10 @@ def separate(args):
             if args.use_cuda:
                 mixture, mix_lengths = mixture.cuda(), mix_lengths.cuda()
             # Forward
-            estimate_source = model(mixture)  # [B, C, K, L]
+            estimate_source = model(mixture)  # [B, C, T]
             # Remove padding and flat
-            flat_estimate = remove_pad_and_flat(estimate_source, mix_lengths)
-            mixture = remove_pad_and_flat(mixture, mix_lengths)
+            flat_estimate = remove_pad(estimate_source, mix_lengths)
+            mixture = remove_pad(mixture, mix_lengths)
             # Write result
             for i, filename in enumerate(filenames):
                 filename = os.path.join(args.out_dir,
@@ -73,27 +74,8 @@ def separate(args):
                     write(flat_estimate[i][c], filename + '_s{}.wav'.format(c+1))
 
 
-def remove_pad_and_flat(inputs, inputs_lengths):
-    """
-    Args:
-        inputs: torch.Tensor, [B, C, K, L] or [B, K, L]
-        inputs_lengths: torch.Tensor, [B]
-    Returns:
-        results: a list containing B items, each item is [C, T], T varies
-    """
-    results = []
-    dim = inputs.dim()
-    if dim == 4:
-        C = inputs.size(1)
-    for input, length in zip(inputs, inputs_lengths):
-        if dim == 4: # [B, C, K, L]
-            results.append(input[:,:length].view(C, -1).cpu().numpy())
-        elif dim == 3:  # [B, K, L]
-            results.append(input[:length].view(-1).cpu().numpy())
-    return results
-
-
 if __name__ == '__main__':
     args = parser.parse_args()
     print(args)
     separate(args)
+
