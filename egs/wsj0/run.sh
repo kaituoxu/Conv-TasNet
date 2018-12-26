@@ -16,7 +16,7 @@ separate_dir=$dumpdir/tt
 sample_rate=8000
 # Network config
 N=256
-L=20
+L=40
 B=256
 H=512
 P=3
@@ -42,6 +42,7 @@ momentum=0
 l2=0
 # save and visualize
 checkpoint=0
+continue_from=""
 print_freq=10
 visdom=0
 visdom_epoch=0
@@ -125,6 +126,7 @@ if [ $stage -le 2 ]; then
     --l2 $l2 \
     --save_folder ${expdir} \
     --checkpoint $checkpoint \
+    --continue_from "$continue_from" \
     --print_freq ${print_freq} \
     --visdom $visdom \
     --visdom_epoch $visdom_epoch \
