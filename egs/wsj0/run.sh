@@ -15,17 +15,18 @@ evaluate_dir=$dumpdir/tt
 separate_dir=$dumpdir/tt
 sample_rate=8000
 # Network config
-N=128
-L=40
-B=64
-H=128
+N=256
+L=20
+B=256
+H=512
 P=3
-X=7
-R=2
+X=8
+R=4
 C=2
 norm_type=BN
 # Training config
 use_cuda=1
+id=0
 epochs=100
 half_lr=0
 early_stop=0
@@ -56,7 +57,7 @@ tag="" # tag for managing experiments.
 wsj0_origin=/home/ktxu/workspace/data/CSR-I-WSJ0-LDC93S6A
 wsj0_wav=/home/ktxu/workspace/data/wsj0-wav/wsj0
 # Directory path of wsj0 including tr, cv and tt
-data=/home/work_nfs/ktxu/data/wsj-mix/2speakers/wav8k/min/
+data=/home/ktxu/workspace/data/wsj-mix/2speakers/wav8k/min/
 
 . utils/parse_options.sh || exit 1;
 . ./cmd.sh
