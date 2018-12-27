@@ -17,7 +17,7 @@ sample_rate=8000
 segment=4  # seconds
 # Network config
 N=256
-L=20
+L=40
 B=256
 H=512
 P=3

@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# Created on 2018/12/09
+# Created on 2018/12
 # Author: Kaituo XU
 
 import argparse
