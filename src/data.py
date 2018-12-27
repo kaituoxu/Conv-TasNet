@@ -19,6 +19,7 @@ Output:
 """
 
 import json
+import math
 import os
 
 import numpy as np
@@ -30,7 +31,7 @@ import librosa
 
 class AudioDataset(data.Dataset):
 
-    def __init__(self, json_dir, batch_size, sample_rate=8000):
+    def __init__(self, json_dir, batch_size, sample_rate=8000, segment=4.0):
         """
         Args:
             json_dir: directory including mix.json, s1.json and s2.json
@@ -53,15 +54,34 @@ class AudioDataset(data.Dataset):
         sorted_mix_infos = sort(mix_infos)
         sorted_s1_infos = sort(s1_infos)
         sorted_s2_infos = sort(s2_infos)
+        # segment length and count dropped utts
+        segment_len = int(segment * sample_rate)  # 4s * 8000/s = 32000 samples
+        drop_utt, drop_len = 0, 0
+        for _, sample in sorted_mix_infos:
+            if sample < segment_len:
+                drop_utt += 1
+                drop_len += sample
+        print("Drop {} utts({:.2f} h) which is short than {} samples".format(
+            drop_utt, drop_len/sample_rate/36000, segment_len))
         # generate minibach infomations
         minibatch = []
         start = 0
         while True:
-            end = min(len(sorted_mix_infos), start + batch_size)
-            minibatch.append([sorted_mix_infos[start:end],
-                              sorted_s1_infos[start:end],
-                              sorted_s2_infos[start:end],
-                              sample_rate])
+            num_segments = 0
+            end = start
+            part_mix, part_s1, part_s2 = [], [], []
+            # Here minus 1 is trying to keep num_segments less than batch_size
+            while num_segments < batch_size-1 and end < len(sorted_mix_infos):
+                utt_len = int(sorted_mix_infos[end][1])
+                if utt_len >= segment_len:  # skip too short utt
+                    num_segments += math.ceil(utt_len / segment_len)
+                    part_mix.append(sorted_mix_infos[end])
+                    part_s1.append(sorted_s1_infos[end])
+                    part_s2.append(sorted_s2_infos[end])
+                end += 1
+            if len(part_mix) > 0:
+                minibatch.append([part_mix, part_s1, part_s2,
+                                  sample_rate, segment_len])
             if end == len(sorted_mix_infos):
                 break
             start = end
@@ -199,7 +219,7 @@ def load_mixtures_and_sources(batch):
         T varies from item to item.
     """
     mixtures, sources = [], []
-    mix_infos, s1_infos, s2_infos, sample_rate = batch
+    mix_infos, s1_infos, s2_infos, sample_rate, segment_len = batch
     # for each utterance
     for mix_info, s1_info, s2_info in zip(mix_infos, s1_infos, s2_infos):
         mix_path = mix_info[0]
@@ -212,8 +232,14 @@ def load_mixtures_and_sources(batch):
         s2, _ = librosa.load(s2_path, sr=sample_rate)
         # merge s1 and s2
         s = np.dstack((s1, s2))[0]  # T x C, C = 2
-        mixtures.append(mix)
-        sources.append(s)
+        # segment
+        utt_len = mix.shape[-1]
+        for i in range(0, utt_len - segment_len + 1, segment_len):
+            mixtures.append(mix[i:i+segment_len])
+            sources.append(s[i:i+segment_len])
+        if utt_len % segment_len != 0:
+            mixtures.append(mix[-segment_len:])
+            sources.append(s[-segment_len:])
     return mixtures, sources
 
 

@@ -23,6 +23,8 @@ parser.add_argument('--valid_dir', type=str, default=None,
                     help='directory including mix.json, s1.json and s2.json')
 parser.add_argument('--sample_rate', default=8000, type=int,
                     help='Sample rate')
+parser.add_argument('--segment', default=4, type=float,
+                    help='Segment length (seconds)')
 # Network architecture
 parser.add_argument('--N', default=256, type=int,
                     help='Number of filters in autoencoder')
@@ -94,9 +96,9 @@ def main(args):
     # Construct Solver
     # data
     tr_dataset = AudioDataset(args.train_dir, args.batch_size,
-                              sample_rate=args.sample_rate)
+                              sample_rate=args.sample_rate, segment=args.segment)
     cv_dataset = AudioDataset(args.valid_dir, args.batch_size,
-                              sample_rate=args.sample_rate)
+                              sample_rate=args.sample_rate, segment=args.segment)
     tr_loader = AudioDataLoader(tr_dataset, batch_size=1,
                                 shuffle=args.shuffle,
                                 num_workers=args.num_workers)

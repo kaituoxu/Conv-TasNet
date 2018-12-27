@@ -14,9 +14,10 @@ valid_dir=$dumpdir/cv
 evaluate_dir=$dumpdir/tt
 separate_dir=$dumpdir/tt
 sample_rate=8000
+segment=4  # seconds
 # Network config
 N=256
-L=40
+L=20
 B=256
 H=512
 P=3
@@ -28,12 +29,12 @@ norm_type=BN
 use_cuda=1
 id=0
 epochs=100
-half_lr=0
+half_lr=1
 early_stop=0
 max_norm=5
 # minibatch
-shuffle=0
-batch_size=2
+shuffle=1
+batch_size=4
 num_workers=4
 # optimizer
 optimizer=adam
@@ -99,10 +100,12 @@ fi
 if [ $stage -le 2 ]; then
   echo "Stage 2: Training"
   ${cuda_cmd} --gpu ${ngpu} ${expdir}/train.log \
+    CUDA_VISIBLE_DEVICES="$id" \
     train.py \
     --train_dir $train_dir \
     --valid_dir $valid_dir \
     --sample_rate $sample_rate \
+    --segment $segment \
     --N $N \
     --L $L \
     --B $B \
