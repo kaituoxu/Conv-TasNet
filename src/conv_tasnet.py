@@ -189,7 +189,8 @@ class TemporalConvNet(nn.Module):
         x = mixture_w.permute((0, 2, 1)).contiguous()  # [M, K, N] -> [M, N, K]
         score = self.network(x)  # [M, N, K] -> [M, C*N, K]
         score = score.permute((0, 2, 1)).view(M, K, self.C, N).contiguous() # [M, C*N, K] -> [M, K, C, N]
-        est_mask = F.softmax(score, dim=2)
+        # est_mask = F.softmax(score, dim=2)
+        est_mask = F.relu(score)
         return est_mask
 
 
