@@ -97,8 +97,8 @@ def main(args):
     # data
     tr_dataset = AudioDataset(args.train_dir, args.batch_size,
                               sample_rate=args.sample_rate, segment=args.segment)
-    cv_dataset = AudioDataset(args.valid_dir, args.batch_size,
-                              sample_rate=args.sample_rate, segment=args.segment)
+    cv_dataset = AudioDataset(args.valid_dir, batch_size=2,  # 2 -> use less GPU memory to do cv
+                              sample_rate=args.sample_rate, segment=-1)  # -1 -> use full audio
     tr_loader = AudioDataLoader(tr_dataset, batch_size=1,
                                 shuffle=args.shuffle,
                                 num_workers=args.num_workers)

@@ -46,7 +46,7 @@ def evaluate(args):
 
     # Load data
     dataset = AudioDataset(args.data_dir, args.batch_size,
-                           sample_rate=args.sample_rate)
+                           sample_rate=args.sample_rate, segment=-1)
     data_loader = AudioDataLoader(dataset, batch_size=1, num_workers=2)
 
     with torch.no_grad():
