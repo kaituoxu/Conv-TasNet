@@ -31,7 +31,7 @@ import librosa
 
 class AudioDataset(data.Dataset):
 
-    def __init__(self, json_dir, batch_size, sample_rate=8000, segment=4.0):
+    def __init__(self, json_dir, batch_size, sample_rate=8000, segment=4.0, cv_maxlen=8.0):
         """
         Args:
             json_dir: directory including mix.json, s1.json and s2.json
@@ -72,11 +72,15 @@ class AudioDataset(data.Dataset):
                 num_segments = 0
                 end = start
                 part_mix, part_s1, part_s2 = [], [], []
-                # Here minus 1 is trying to keep num_segments less than batch_size
-                while num_segments < batch_size-1 and end < len(sorted_mix_infos):
+                while num_segments < batch_size and end < len(sorted_mix_infos):
                     utt_len = int(sorted_mix_infos[end][1])
                     if utt_len >= segment_len:  # skip too short utt
                         num_segments += math.ceil(utt_len / segment_len)
+                        # Ensure num_segments is less than batch_size
+                        if num_segments > batch_size:
+                            # if num_segments of 1st audio > batch_size, skip it
+                            if start == end: end += 1
+                            break
                         part_mix.append(sorted_mix_infos[end])
                         part_s1.append(sorted_s1_infos[end])
                         part_s2.append(sorted_s2_infos[end])
@@ -94,6 +98,10 @@ class AudioDataset(data.Dataset):
             start = 0
             while True:
                 end = min(len(sorted_mix_infos), start + batch_size)
+                # Skip long audio to avoid out-of-memory issue
+                if int(sorted_mix_infos[start][1]) > cv_maxlen * sample_rate:
+                    start = end
+                    continue
                 minibatch.append([sorted_mix_infos[start:end],
                                   sorted_s1_infos[start:end],
                                   sorted_s2_infos[start:end],
@@ -248,9 +256,9 @@ def load_mixtures_and_sources(batch):
         s2, _ = librosa.load(s2_path, sr=sample_rate)
         # merge s1 and s2
         s = np.dstack((s1, s2))[0]  # T x C, C = 2
+        utt_len = mix.shape[-1]
         if segment_len >= 0:
             # segment
-            utt_len = mix.shape[-1]
             for i in range(0, utt_len - segment_len + 1, segment_len):
                 mixtures.append(mix[i:i+segment_len])
                 sources.append(s[i:i+segment_len])

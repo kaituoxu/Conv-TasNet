@@ -84,9 +84,10 @@ class Solver(object):
             if self.checkpoint:
                 file_path = os.path.join(
                     self.save_folder, 'epoch%d.pth.tar' % (epoch + 1))
-                torch.save(self.model.serialize(self.model, self.optimizer, epoch + 1,
-                                                tr_loss=self.tr_loss,
-                                                cv_loss=self.cv_loss),
+                torch.save(self.model.module.serialize(self.model.module,
+                                                       self.optimizer, epoch + 1,
+                                                       tr_loss=self.tr_loss,
+                                                       cv_loss=self.cv_loss),
                            file_path)
                 print('Saving checkpoint model to %s' % file_path)
 
@@ -125,9 +126,10 @@ class Solver(object):
             if val_loss < self.best_val_loss:
                 self.best_val_loss = val_loss
                 file_path = os.path.join(self.save_folder, self.model_path)
-                torch.save(self.model.serialize(self.model, self.optimizer, epoch + 1,
-                                                tr_loss=self.tr_loss,
-                                                cv_loss=self.cv_loss),
+                torch.save(self.model.module.serialize(self.model.module,
+                                                       self.optimizer, epoch + 1,
+                                                       tr_loss=self.tr_loss,
+                                                       cv_loss=self.cv_loss),
                            file_path)
                 print("Find better validated model, saving to %s" % file_path)
 

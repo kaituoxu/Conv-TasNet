@@ -25,6 +25,8 @@ parser.add_argument('--sample_rate', default=8000, type=int,
                     help='Sample rate')
 parser.add_argument('--segment', default=4, type=float,
                     help='Segment length (seconds)')
+parser.add_argument('--cv_maxlen', default=8, type=float,
+                    help='max audio length (seconds) in cv, to avoid OOM issue.')
 # Network architecture
 parser.add_argument('--N', default=256, type=int,
                     help='Number of filters in autoencoder')
@@ -98,12 +100,12 @@ def main(args):
     tr_dataset = AudioDataset(args.train_dir, args.batch_size,
                               sample_rate=args.sample_rate, segment=args.segment)
     cv_dataset = AudioDataset(args.valid_dir, batch_size=2,  # 2 -> use less GPU memory to do cv
-                              sample_rate=args.sample_rate, segment=-1)  # -1 -> use full audio
+                              sample_rate=args.sample_rate,
+                              segment=-1, cv_maxlen=args.cv_maxlen)  # -1 -> use full audio
     tr_loader = AudioDataLoader(tr_dataset, batch_size=1,
                                 shuffle=args.shuffle,
                                 num_workers=args.num_workers)
     cv_loader = AudioDataLoader(cv_dataset, batch_size=1,
-                                shuffle=args.shuffle,
                                 num_workers=args.num_workers)
     data = {'tr_loader': tr_loader, 'cv_loader': cv_loader}
     # model
@@ -111,6 +113,7 @@ def main(args):
                        args.C, norm_type=args.norm_type)
     print(model)
     if args.use_cuda:
+        model = torch.nn.DataParallel(model)
         model.cuda()
     # optimizer
     if args.optimizer == 'sgd':

@@ -15,6 +15,7 @@ evaluate_dir=$dumpdir/tt
 separate_dir=$dumpdir/tt
 sample_rate=8000
 segment=4  # seconds
+cv_maxlen=8  # seconds
 # Network config
 N=256
 L=40
@@ -106,6 +107,7 @@ if [ $stage -le 2 ]; then
     --valid_dir $valid_dir \
     --sample_rate $sample_rate \
     --segment $segment \
+    --cv_maxlen $cv_maxlen \
     --N $N \
     --L $L \
     --B $B \
