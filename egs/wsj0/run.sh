@@ -3,7 +3,15 @@
 # Created on 2018/12
 # Author: Kaituo XU
 
-stage=2
+# -- START IMPORTANT
+# Modify these path to your path
+wsj0_origin=/home/ktxu/workspace/data/CSR-I-WSJ0-LDC93S6A
+wsj0_wav=/home/ktxu/workspace/data/wsj0-wav/wsj0
+# Directory of wsj0 including tr, cv and tt
+data=/home/ktxu/workspace/data/wsj-mix/2speakers/wav8k/min/
+
+stage=1  # Modify this to control to start from which stage
+# -- END
 
 ngpu=1
 dumpdir=data
@@ -56,11 +64,6 @@ cal_sdr=1
 
 # exp tag
 tag="" # tag for managing experiments.
-
-wsj0_origin=/home/ktxu/workspace/data/CSR-I-WSJ0-LDC93S6A
-wsj0_wav=/home/ktxu/workspace/data/wsj0-wav/wsj0
-# Directory path of wsj0 including tr, cv and tt
-data=/home/ktxu/workspace/data/wsj-mix/2speakers/wav8k/min/
 
 . utils/parse_options.sh || exit 1;
 . ./cmd.sh

@@ -52,7 +52,7 @@ class Solver(object):
         if self.continue_from:
             print('Loading checkpoint model %s' % self.continue_from)
             package = torch.load(self.continue_from)
-            self.model.load_state_dict(package['state_dict'])
+            self.model.module.load_state_dict(package['state_dict'])
             self.optimizer.load_state_dict(package['optim_dict'])
             self.start_epoch = int(package.get('epoch', 1))
             self.tr_loss[:self.start_epoch] = package['tr_loss'][:self.start_epoch]
