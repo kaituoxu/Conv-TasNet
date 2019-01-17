@@ -26,14 +26,15 @@ segment=4  # seconds
 cv_maxlen=8  # seconds
 # Network config
 N=256
-L=40
+L=20
 B=256
 H=512
 P=3
 X=8
 R=4
+norm_type=gLN
+causal=0
 C=2
-norm_type=BN
 # Training config
 use_cuda=1
 id=0
@@ -120,6 +121,7 @@ if [ $stage -le 2 ]; then
     --R $R \
     --C $C \
     --norm_type $norm_type \
+    --causal $causal \
     --use_cuda $use_cuda \
     --epochs $epochs \
     --half_lr $half_lr \

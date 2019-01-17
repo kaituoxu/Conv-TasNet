@@ -46,6 +46,8 @@ parser.add_argument('--C', default=2, type=int,
                     help='Number of speakers')
 parser.add_argument('--norm_type', default='gLN', type=str,
                     choices=['gLN', 'cLN', 'BN'], help='Layer norm type')
+parser.add_argument('--causal', type=int, default=0,
+                    help='Causal (1) or noncausal(0) training')
 # Training config
 parser.add_argument('--use_cuda', type=int, default=1,
                     help='Whether use GPU')
@@ -110,7 +112,7 @@ def main(args):
     data = {'tr_loader': tr_loader, 'cv_loader': cv_loader}
     # model
     model = ConvTasNet(args.N, args.L, args.B, args.H, args.P, args.X, args.R,
-                       args.C, norm_type=args.norm_type)
+                       args.C, norm_type=args.norm_type, causal=args.causal)
     print(model)
     if args.use_cuda:
         model = torch.nn.DataParallel(model)

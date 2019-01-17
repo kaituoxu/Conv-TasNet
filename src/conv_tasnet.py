@@ -11,7 +11,7 @@ EPS = 1e-8
 
 
 class ConvTasNet(nn.Module):
-    def __init__(self, N, L, B, H, P, X, R, C, norm_type="gLN"):
+    def __init__(self, N, L, B, H, P, X, R, C, norm_type="gLN", causal=False):
         """
         Args:
             N: Number of filters in autoencoder
@@ -30,7 +30,7 @@ class ConvTasNet(nn.Module):
         self.norm_type = norm_type
         # Components
         self.encoder = Encoder(L, N)
-        self.separator = TemporalConvNet(N, B, H, P, X, R, C, norm_type)
+        self.separator = TemporalConvNet(N, B, H, P, X, R, C, norm_type, causal)
         self.decoder = Decoder(N, L)
         # init
         for p in self.parameters():
@@ -137,7 +137,7 @@ class Decoder(nn.Module):
 
 
 class TemporalConvNet(nn.Module):
-    def __init__(self, N, B, H, P, X, R, C, norm_type="gLN"):
+    def __init__(self, N, B, H, P, X, R, C, norm_type="gLN", causal=False):
         """
         Args:
             N: Number of filters in autoencoder
@@ -164,9 +164,12 @@ class TemporalConvNet(nn.Module):
             blocks = []
             for x in range(X):
                 dilation = 2**x
+                padding = (P - 1) * dilation if causal else (P - 1) * dilation // 2
                 blocks += [TemporalBlock(B, H, P, stride=1,
-                                         padding=(P-1)*dilation,
-                                         dilation=dilation, norm_type=norm_type)]
+                                         padding=padding,
+                                         dilation=dilation,
+                                         norm_type=norm_type,
+                                         causal=causal)]
             repeats += [nn.Sequential(*blocks)]
         temporal_conv_net = nn.Sequential(*repeats)
         # [M, B, K] -> [M, C*N, K]
@@ -196,7 +199,7 @@ class TemporalConvNet(nn.Module):
 
 class TemporalBlock(nn.Module):
     def __init__(self, in_channels, out_channels, kernel_size,
-                 stride, padding, dilation, norm_type="gLN"):
+                 stride, padding, dilation, norm_type="gLN", causal=False):
         super(TemporalBlock, self).__init__()
         # [M, B, K] -> [M, H, K]
         conv1x1 = nn.Conv1d(in_channels, out_channels, 1, bias=False)
@@ -204,7 +207,8 @@ class TemporalBlock(nn.Module):
         norm = chose_norm(norm_type, out_channels)
         # [M, H, K] -> [M, B, K]
         dsconv = DepthwiseSeparableConv(out_channels, in_channels, kernel_size,
-                                        stride, padding, dilation, norm_type)
+                                        stride, padding, dilation, norm_type,
+                                        causal)
         # Put together
         self.net = nn.Sequential(conv1x1, prelu, norm, dsconv)
 
@@ -217,13 +221,14 @@ class TemporalBlock(nn.Module):
         """
         residual = x
         out = self.net(x)
+        # TODO: when P = 3 here works fine, but when P = 2 maybe need to pad?
         return out + residual  # look like w/o F.relu is better than w/ F.relu
         # return F.relu(out + residual)
 
 
 class DepthwiseSeparableConv(nn.Module):
     def __init__(self, in_channels, out_channels, kernel_size,
-                 stride, padding, dilation, norm_type="gLN"):
+                 stride, padding, dilation, norm_type="gLN", causal=False):
         super(DepthwiseSeparableConv, self).__init__()
         # Use `groups` option to implement depthwise convolution
         # [M, H, K] -> [M, H, K]
@@ -231,14 +236,19 @@ class DepthwiseSeparableConv(nn.Module):
                                    stride=stride, padding=padding,
                                    dilation=dilation, groups=in_channels,
                                    bias=False)
-        chomp = Chomp1d(padding)
+        if causal:
+            chomp = Chomp1d(padding)
         prelu = nn.PReLU()
         norm = chose_norm(norm_type, in_channels)
         # [M, H, K] -> [M, B, K]
         pointwise_conv = nn.Conv1d(in_channels, out_channels, 1, bias=False)
         # Put together
-        self.net = nn.Sequential(depthwise_conv, chomp, prelu, norm,
-                                 pointwise_conv)
+        if causal:
+            self.net = nn.Sequential(depthwise_conv, chomp, prelu, norm,
+                                     pointwise_conv)
+        else:
+            self.net = nn.Sequential(depthwise_conv, prelu, norm,
+                                     pointwise_conv)
 
     def forward(self, x):
         """
@@ -322,7 +332,7 @@ class GlobalLayerNorm(nn.Module):
         """
         # TODO: in torch 1.0, torch.mean() support dim list
         mean = y.mean(dim=1, keepdim=True).mean(dim=2, keepdim=True) #[M, 1, 1]
-        var = torch.pow(y-mean, 2).mean(dim=1, keepdim=True).mean(dim=2, keepdim=True)
+        var = (torch.pow(y-mean, 2)).mean(dim=1, keepdim=True).mean(dim=2, keepdim=True)
         gLN_y = self.gamma * (y - mean) / torch.pow(var + EPS, 0.5) + self.beta
         return gLN_y
 
@@ -331,7 +341,7 @@ if __name__ == "__main__":
     torch.manual_seed(123)
     M, N, L, T = 2, 3, 4, 12
     K = 2*T//L-1
-    B, H, P, X, R, C, norm_type = 2, 3, 2, 3, 2, 2, "gLN"
+    B, H, P, X, R, C, norm_type, causal = 2, 3, 3, 3, 2, 2, "gLN", False
     mixture = torch.randint(3, (M, T))
     # test Encoder
     encoder = Encoder(L, N)
@@ -343,7 +353,7 @@ if __name__ == "__main__":
     print('mixture_w size', mixture_w.size())
 
     # test TemporalConvNet
-    separator = TemporalConvNet(N, B, H, P, X, R, C, norm_type=norm_type)
+    separator = TemporalConvNet(N, B, H, P, X, R, C, norm_type=norm_type, causal=causal)
     est_mask = separator(mixture_w)
     print('est_mask', est_mask)
 
