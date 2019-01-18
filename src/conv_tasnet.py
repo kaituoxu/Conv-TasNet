@@ -103,11 +103,10 @@ class Encoder(nn.Module):
         Args:
             mixture: [M, T], M is batch size, T is #samples
         Returns:
-            mixture_w: [M, K, N], where K = (T-L)/(L/2)+1 = 2T/L-1
+            mixture_w: [M, N, K], where K = (T-L)/(L/2)+1 = 2T/L-1
         """
         mixture = torch.unsqueeze(mixture, 1)  # [M, 1, T]
         mixture_w = F.relu(self.conv1d_U(mixture))  # [M, N, K]
-        mixture_w = mixture_w.permute((0, 2, 1)).contiguous()
         return mixture_w
 
 
@@ -122,16 +121,16 @@ class Decoder(nn.Module):
     def forward(self, mixture_w, est_mask):
         """
         Args:
-            mixture_w: [M, K, N]
-            est_mask: [M, K, C, N]
+            mixture_w: [M, N, K]
+            est_mask: [M, C, N, K]
         Returns:
             est_source: [M, C, T]
         """
         # D = W * M
-        source_w = torch.unsqueeze(mixture_w, 2) * est_mask  # M x K x C x N
+        source_w = torch.unsqueeze(mixture_w, 1) * est_mask  # [M, C, N, K]
+        source_w = torch.transpose(source_w, 2, 3) # [M, C, K, N]
         # S = DV
-        est_source = self.basis_signals(source_w)  # M x K x C x L
-        est_source = est_source.permute((0, 2, 1, 3)).contiguous()  # M x C x K x L
+        est_source = self.basis_signals(source_w)  # [M, C, K, L]
         est_source = overlap_and_add(est_source, self.L//2) # M x C x T
         return est_source
 
@@ -184,15 +183,14 @@ class TemporalConvNet(nn.Module):
         """
         Keep this API same with TasNet
         Args:
-            mixture_w: [M, K, N], M is batch size
+            mixture_w: [M, N, K], M is batch size
         returns:
-            est_mask: [M, K, C, N]
+            est_mask: [M, C, N, K]
         """
-        M, K, N = mixture_w.size()
-        x = mixture_w.permute((0, 2, 1)).contiguous()  # [M, K, N] -> [M, N, K]
-        score = self.network(x)  # [M, N, K] -> [M, C*N, K]
-        score = score.permute((0, 2, 1)).view(M, K, self.C, N).contiguous() # [M, C*N, K] -> [M, K, C, N]
-        # est_mask = F.softmax(score, dim=2)
+        M, N, K = mixture_w.size()
+        score = self.network(mixture_w)  # [M, N, K] -> [M, C*N, K]
+        score = score.view(M, self.C, N, K) # [M, C*N, K] -> [M, C, N, K]
+        # est_mask = F.softmax(score, dim=1)
         est_mask = F.relu(score)
         return est_mask
 
