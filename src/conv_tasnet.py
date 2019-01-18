@@ -278,14 +278,20 @@ class Chomp1d(nn.Module):
 
 
 def chose_norm(norm_type, channel_size):
+    """The input of normlization will be (M, C, K), where M is batch size,
+       C is channel size and K is sequence length.
+    """
     if norm_type == "gLN":
         return GlobalLayerNorm(channel_size)
     elif norm_type == "cLN":
         return ChannelwiseLayerNorm(channel_size)
     else: # norm_type == "BN":
+        # Given input (M, C, K), nn.BatchNorm1d(C) will accumulate statics
+        # along M and K, so this BN usage is right.
         return nn.BatchNorm1d(channel_size)
 
 
+# TODO: Use nn.LayerNorm to impl cLN to speed up
 class ChannelwiseLayerNorm(nn.Module):
     """Channel-wise Layer Normalization (cLN)"""
     def __init__(self, channel_size):
