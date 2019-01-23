@@ -108,7 +108,7 @@ def main(args):
                                 shuffle=args.shuffle,
                                 num_workers=args.num_workers)
     cv_loader = AudioDataLoader(cv_dataset, batch_size=1,
-                                num_workers=args.num_workers)
+                                num_workers=0)
     data = {'tr_loader': tr_loader, 'cv_loader': cv_loader}
     # model
     model = ConvTasNet(args.N, args.L, args.B, args.H, args.P, args.X, args.R,

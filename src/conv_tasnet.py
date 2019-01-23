@@ -28,6 +28,7 @@ class ConvTasNet(nn.Module):
         # Hyper-parameter
         self.N, self.L, self.B, self.H, self.P, self.X, self.R, self.C = N, L, B, H, P, X, R, C
         self.norm_type = norm_type
+        self.causal = causal
         # Components
         self.encoder = Encoder(L, N)
         self.separator = TemporalConvNet(N, B, H, P, X, R, C, norm_type, causal)
@@ -65,7 +66,7 @@ class ConvTasNet(nn.Module):
     def load_model_from_package(cls, package):
         model = cls(package['N'], package['L'], package['B'], package['H'],
                     package['P'], package['X'], package['R'], package['C'],
-                    norm_type=package['norm_type'])
+                    norm_type=package['norm_type'], causal=package['causal'])
         model.load_state_dict(package['state_dict'])
         return model
 
@@ -75,7 +76,7 @@ class ConvTasNet(nn.Module):
             # hyper-parameter
             'N': model.N, 'L': model.L, 'B': model.B, 'H': model.H,
             'P': model.P, 'X': model.X, 'R': model.R, 'C': model.C,
-            'norm_type': model.norm_type,
+            'norm_type': model.norm_type, 'causal': model.causal,
             # state
             'state_dict': model.state_dict(),
             'optim_dict': optimizer.state_dict(),
