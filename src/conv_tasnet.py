@@ -11,7 +11,8 @@ EPS = 1e-8
 
 
 class ConvTasNet(nn.Module):
-    def __init__(self, N, L, B, H, P, X, R, C, norm_type="gLN", causal=False):
+    def __init__(self, N, L, B, H, P, X, R, C, norm_type="gLN", causal=False,
+                 mask_nonlinear='relu'):
         """
         Args:
             N: Number of filters in autoencoder
@@ -23,15 +24,18 @@ class ConvTasNet(nn.Module):
             R: Number of repeats
             C: Number of speakers
             norm_type: BN, gLN, cLN
+            causal: causal or non-causal
+            mask_nonlinear: use which non-linear function to generate mask
         """
         super(ConvTasNet, self).__init__()
         # Hyper-parameter
         self.N, self.L, self.B, self.H, self.P, self.X, self.R, self.C = N, L, B, H, P, X, R, C
         self.norm_type = norm_type
         self.causal = causal
+        self.mask_nonlinear = mask_nonlinear
         # Components
         self.encoder = Encoder(L, N)
-        self.separator = TemporalConvNet(N, B, H, P, X, R, C, norm_type, causal)
+        self.separator = TemporalConvNet(N, B, H, P, X, R, C, norm_type, causal, mask_nonlinear)
         self.decoder = Decoder(N, L)
         # init
         for p in self.parameters():
@@ -66,7 +70,8 @@ class ConvTasNet(nn.Module):
     def load_model_from_package(cls, package):
         model = cls(package['N'], package['L'], package['B'], package['H'],
                     package['P'], package['X'], package['R'], package['C'],
-                    norm_type=package['norm_type'], causal=package['causal'])
+                    norm_type=package['norm_type'], causal=package['causal'],
+                    mask_nonlinear=package['mask_nonlinear'])
         model.load_state_dict(package['state_dict'])
         return model
 
@@ -77,6 +82,7 @@ class ConvTasNet(nn.Module):
             'N': model.N, 'L': model.L, 'B': model.B, 'H': model.H,
             'P': model.P, 'X': model.X, 'R': model.R, 'C': model.C,
             'norm_type': model.norm_type, 'causal': model.causal,
+            'mask_nonlinear': model.mask_nonlinear,
             # state
             'state_dict': model.state_dict(),
             'optim_dict': optimizer.state_dict(),
@@ -137,7 +143,8 @@ class Decoder(nn.Module):
 
 
 class TemporalConvNet(nn.Module):
-    def __init__(self, N, B, H, P, X, R, C, norm_type="gLN", causal=False):
+    def __init__(self, N, B, H, P, X, R, C, norm_type="gLN", causal=False,
+                 mask_nonlinear='relu'):
         """
         Args:
             N: Number of filters in autoencoder
@@ -148,11 +155,13 @@ class TemporalConvNet(nn.Module):
             R: Number of repeats
             C: Number of speakers
             norm_type: BN, gLN, cLN
+            causal: causal or non-causal
+            mask_nonlinear: use which non-linear function to generate mask
         """
         super(TemporalConvNet, self).__init__()
         # Hyper-parameter
-        self.N, self.B, self.H, self.P, self.X, self.R, self.C = N, B, H, P, X, R, C
-        self.norm_type = norm_type
+        self.C = C
+        self.mask_nonlinear = mask_nonlinear
         # Components
         # [M, N, K] -> [M, N, K]
         layer_norm = ChannelwiseLayerNorm(N)
@@ -191,8 +200,12 @@ class TemporalConvNet(nn.Module):
         M, N, K = mixture_w.size()
         score = self.network(mixture_w)  # [M, N, K] -> [M, C*N, K]
         score = score.view(M, self.C, N, K) # [M, C*N, K] -> [M, C, N, K]
-        # est_mask = F.softmax(score, dim=1)
-        est_mask = F.relu(score)
+        if self.mask_nonlinear == 'softmax':
+            est_mask = F.softmax(score, dim=1)
+        elif self.mask_nonlinear == 'relu':
+            est_mask = F.relu(score)
+        else:
+            raise ValueError("Unsupported mask non-linear function")
         return est_mask
 
 
