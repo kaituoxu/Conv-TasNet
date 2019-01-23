@@ -23,7 +23,7 @@ evaluate_dir=$dumpdir/tt
 separate_dir=$dumpdir/tt
 sample_rate=8000
 segment=4  # seconds
-cv_maxlen=8  # seconds
+cv_maxlen=6  # seconds
 # Network config
 N=256
 L=20
@@ -44,7 +44,7 @@ early_stop=0
 max_norm=5
 # minibatch
 shuffle=1
-batch_size=4
+batch_size=3
 num_workers=4
 # optimizer
 optimizer=adam
