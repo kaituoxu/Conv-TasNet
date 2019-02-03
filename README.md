@@ -5,7 +5,7 @@ A PyTorch implementation of Conv-TasNet described in ["TasNet: Surpassing Ideal 
 | From | N | L | B | H | P | X | R | Norm | Causal | batch size |SI-SNRi(dB) | SDRi(dB)|
 |:----:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:----:|:------:|:----------:|:----------:|:-------:|
 | Paper|256|20 |256|512| 3 | 8 | 4 |  gLN |   X    |     -      |    14.6    |  15.0   |
-| Here |256|20 |256|512| 3 | 8 | 4 |  gLN |   X    |     3      |    15.1    |  15.4   |
+| Here |256|20 |256|512| 3 | 8 | 4 |  gLN |   X    |     3      |    15.5    |  15.7   |
 
 ## Install
 - PyTorch 0.4.1+
