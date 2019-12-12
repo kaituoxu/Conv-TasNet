@@ -2,8 +2,9 @@
 A PyTorch implementation of Conv-TasNet described in ["TasNet: Surpassing Ideal Time-Frequency Masking for Speech Separation"](https://arxiv.org/abs/1809.07454).
 
 ```
-Ad: Welcome to join Kwai Speech Team, make your career great! Send your resume to xukaituo@kuaishou.com!
-广告时间：欢迎加入快手语音组，make your career great! 快发送简历到xukaituo@kuaishou.com吧！
+Ad: Welcome to join Kwai Speech Team, make your career great! Send your resume to: xukaituo [at] kuaishou [dot] com!
+广告时间：欢迎加入快手语音组，make your career great! 快发送简历到xukaituo [at] kuaishou [dot] com吧！
+広告：Kwai チームへようこそ！自分のキャリアを照らそう！レジュメをこちらへ: xukaituo [at] kuaishou [dot] com!
 ```
 
 ## Results
