@@ -1,6 +1,11 @@
 # Conv-TasNet
 A PyTorch implementation of Conv-TasNet described in ["TasNet: Surpassing Ideal Time-Frequency Masking for Speech Separation"](https://arxiv.org/abs/1809.07454).
 
+```
+Ad: Welcome to join Kwai Speech Team, make your career great! Seed your resume to xukaituo@kuaishou.com!
+广告时间：欢迎加入快手语音组，make your career great! 快发送简历到xukaituo@kuaishou.com吧！
+```
+
 ## Results
 | From | N | L | B | H | P | X | R | Norm | Causal | batch size |SI-SNRi(dB) | SDRi(dB)|
 |:----:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:----:|:------:|:----------:|:----------:|:-------:|
