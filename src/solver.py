@@ -10,32 +10,36 @@ from pit_criterion import cal_loss
 
 
 class Solver(object):
-    
-    def __init__(self, data, model, optimizer, args):
+
+    def __init__(self, data, model, optimizer, arg_solver):
+
+        (use_cuda, epochs, half_lr, early_stop, max_grad_norm, save_folder, enable_checkpoint, continue_from,
+         model_path, print_freq, visdom, visdom_epoch, visdom_id) = arg_solver
+
         self.tr_loader = data['tr_loader']
         self.cv_loader = data['cv_loader']
         self.model = model
         self.optimizer = optimizer
 
         # Training config
-        self.use_cuda = args.use_cuda
-        self.epochs = args.epochs
-        self.half_lr = args.half_lr
-        self.early_stop = args.early_stop
-        self.max_norm = args.max_norm
+        self.use_cuda = use_cuda
+        self.epochs = epochs
+        self.half_lr = half_lr
+        self.early_stop = early_stop
+        self.max_norm = max_grad_norm
         # save and load model
-        self.save_folder = args.save_folder
-        self.checkpoint = args.checkpoint
-        self.continue_from = args.continue_from
-        self.model_path = args.model_path
+        self.save_folder = save_folder
+        self.checkpoint = enable_checkpoint
+        self.continue_from = continue_from
+        self.model_path = model_path
         # logging
-        self.print_freq = args.print_freq
+        self.print_freq = print_freq
         # visualizing loss using visdom
         self.tr_loss = torch.Tensor(self.epochs)
         self.cv_loss = torch.Tensor(self.epochs)
-        self.visdom = args.visdom
-        self.visdom_epoch = args.visdom_epoch
-        self.visdom_id = args.visdom_id
+        self.visdom = visdom
+        self.visdom_epoch = visdom_epoch
+        self.visdom_id = visdom_id
         if self.visdom:
             from visdom import Visdom
             self.vis = Visdom(env=self.visdom_id)
@@ -77,7 +81,7 @@ class Solver(object):
             print('-' * 85)
             print('Train Summary | End of Epoch {0} | Time {1:.2f}s | '
                   'Train Loss {2:.3f}'.format(
-                      epoch + 1, time.time() - start, tr_avg_loss))
+                epoch + 1, time.time() - start, tr_avg_loss))
             print('-' * 85)
 
             # Save model each epoch
@@ -98,7 +102,7 @@ class Solver(object):
             print('-' * 85)
             print('Valid Summary | End of Epoch {0} | Time {1:.2f}s | '
                   'Valid Loss {2:.3f}'.format(
-                      epoch + 1, time.time() - start, val_loss))
+                epoch + 1, time.time() - start, val_loss))
             print('-' * 85)
 
             # Adjust learning rate (halving)
@@ -190,16 +194,16 @@ class Solver(object):
             if i % self.print_freq == 0:
                 print('Epoch {0} | Iter {1} | Average Loss {2:.3f} | '
                       'Current Loss {3:.6f} | {4:.1f} ms/batch'.format(
-                          epoch + 1, i + 1, total_loss / (i + 1),
-                          loss.item(), 1000 * (time.time() - start) / (i + 1)),
-                      flush=True)
+                    epoch + 1, i + 1, total_loss / (i + 1),
+                    loss.item(), 1000 * (time.time() - start) / (i + 1)),
+                    flush=True)
 
             # visualizing loss using visdom
             if self.visdom_epoch and not cross_valid:
                 vis_iters_loss[i] = loss.item()
                 if i % self.print_freq == 0:
-                    x_axis = vis_iters[:i+1]
-                    y_axis = vis_iters_loss[:i+1]
+                    x_axis = vis_iters[:i + 1]
+                    y_axis = vis_iters_loss[:i + 1]
                     if vis_window_epoch is None:
                         vis_window_epoch = self.vis.line(X=x_axis, Y=y_axis,
                                                          opts=vis_opts_epoch)

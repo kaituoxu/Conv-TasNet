@@ -3,144 +3,110 @@
 # Created on 2018/12
 # Author: Kaituo XU
 
-import argparse
 
 import torch
 
-from data import AudioDataLoader, AudioDataset
-from solver import Solver
-from conv_tasnet import ConvTasNet
+from src.data import AudioDataLoader, AudioDataset
+from src.solver import Solver
+from src.conv_tasnet import ConvTasNet
 
 
-parser = argparse.ArgumentParser(
-    "Fully-Convolutional Time-domain Audio Separation Network (Conv-TasNet) "
-    "with Permutation Invariant Training")
-# General config
-# Task related
-parser.add_argument('--train_dir', type=str, default=None,
-                    help='directory including mix.json, s1.json and s2.json')
-parser.add_argument('--valid_dir', type=str, default=None,
-                    help='directory including mix.json, s1.json and s2.json')
-parser.add_argument('--sample_rate', default=8000, type=int,
-                    help='Sample rate')
-parser.add_argument('--segment', default=4, type=float,
-                    help='Segment length (seconds)')
-parser.add_argument('--cv_maxlen', default=8, type=float,
-                    help='max audio length (seconds) in cv, to avoid OOM issue.')
-# Network architecture
-parser.add_argument('--N', default=256, type=int,
-                    help='Number of filters in autoencoder')
-parser.add_argument('--L', default=20, type=int,
-                    help='Length of the filters in samples (40=5ms at 8kHZ)')
-parser.add_argument('--B', default=256, type=int,
-                    help='Number of channels in bottleneck 1 × 1-conv block')
-parser.add_argument('--H', default=512, type=int,
-                    help='Number of channels in convolutional blocks')
-parser.add_argument('--P', default=3, type=int,
-                    help='Kernel size in convolutional blocks')
-parser.add_argument('--X', default=8, type=int,
-                    help='Number of convolutional blocks in each repeat')
-parser.add_argument('--R', default=4, type=int,
-                    help='Number of repeats')
-parser.add_argument('--C', default=2, type=int,
-                    help='Number of speakers')
-parser.add_argument('--norm_type', default='gLN', type=str,
-                    choices=['gLN', 'cLN', 'BN'], help='Layer norm type')
-parser.add_argument('--causal', type=int, default=0,
-                    help='Causal (1) or noncausal(0) training')
-parser.add_argument('--mask_nonlinear', default='relu', type=str,
-                    choices=['relu', 'softmax'], help='non-linear to generate mask')
-# Training config
-parser.add_argument('--use_cuda', type=int, default=1,
-                    help='Whether use GPU')
-parser.add_argument('--epochs', default=30, type=int,
-                    help='Number of maximum epochs')
-parser.add_argument('--half_lr', dest='half_lr', default=0, type=int,
-                    help='Halving learning rate when get small improvement')
-parser.add_argument('--early_stop', dest='early_stop', default=0, type=int,
-                    help='Early stop training when no improvement for 10 epochs')
-parser.add_argument('--max_norm', default=5, type=float,
-                    help='Gradient norm threshold to clip')
-# minibatch
-parser.add_argument('--shuffle', default=0, type=int,
-                    help='reshuffle the data at every epoch')
-parser.add_argument('--batch_size', default=128, type=int,
-                    help='Batch size')
-parser.add_argument('--num_workers', default=4, type=int,
-                    help='Number of workers to generate minibatch')
-# optimizer
-parser.add_argument('--optimizer', default='adam', type=str,
-                    choices=['sgd', 'adam'],
-                    help='Optimizer (support sgd and adam now)')
-parser.add_argument('--lr', default=1e-3, type=float,
-                    help='Init learning rate')
-parser.add_argument('--momentum', default=0.0, type=float,
-                    help='Momentum for optimizer')
-parser.add_argument('--l2', default=0.0, type=float,
-                    help='weight decay (L2 penalty)')
-# save and load model
-parser.add_argument('--save_folder', default='exp/temp',
-                    help='Location to save epoch models')
-parser.add_argument('--checkpoint', dest='checkpoint', default=0, type=int,
-                    help='Enables checkpoint saving of model')
-parser.add_argument('--continue_from', default='',
-                    help='Continue from checkpoint model')
-parser.add_argument('--model_path', default='final.pth.tar',
-                    help='Location to save best validation model')
-# logging
-parser.add_argument('--print_freq', default=10, type=int,
-                    help='Frequency of printing training infomation')
-parser.add_argument('--visdom', dest='visdom', type=int, default=0,
-                    help='Turn on visdom graphing')
-parser.add_argument('--visdom_epoch', dest='visdom_epoch', type=int, default=0,
-                    help='Turn on visdom graphing each epoch')
-parser.add_argument('--visdom_id', default='TasNet training',
-                    help='Identifier for visdom run')
+def train(data_dir, epochs):
+    # General config
+    # Task related
+    train_dir = data_dir + "tr"
+    valid_dir = data_dir + "cv"
+    sample_rate = 8000
+    segment_len = 4
+    cv_maxlen = 6
 
+    # Network architecture
+    N = 256  # Number of filters in autoencoder
+    L = 20  # Length of filters in conv autoencoder
+    B = 256  # number of channels in conv blocks - after bottleneck 1x1 conv
+    H = 512  # number of channels in inner conv1d block
+    P = 3  # length of filter in inner conv1d blocks
+    X = 8  # number of conv1d blocks in (also number of dilations) in each repeat
+    R = 4  # number of repeats
+    C = 2  # Number of speakers
 
-def main(args):
-    # Construct Solver
-    # data
-    tr_dataset = AudioDataset(args.train_dir, args.batch_size,
-                              sample_rate=args.sample_rate, segment=args.segment)
-    cv_dataset = AudioDataset(args.valid_dir, batch_size=1,  # 1 -> use less GPU memory to do cv
-                              sample_rate=args.sample_rate,
-                              segment=-1, cv_maxlen=args.cv_maxlen)  # -1 -> use full audio
+    norm_type = 'gLN'  # choices=['gLN', 'cLN', 'BN']
+    causal = 0
+    mask_nonlinear = 'relu'
+
+    use_cuda = 1
+    epochs = 30
+
+    half_lr = 1  # Half the learning rate when there's a small improvement
+    early_stop = 0  # Stop learning if no imporvement after 10 epochs
+    max_grad_norm = 5  # gradient clipping
+
+    shuffle = 1  # Shuffle every epoch
+    batch_size = 3
+    num_workers = 4
+    # optimizer
+    optimizer_type = "adam"
+    lr = 1e-3
+    momentum = 0
+    l2 = 0  # Weight decay - l2 norm
+
+    # save and visualize
+    save_folder = ""  # TODO: check this if I want checkpoints
+    enable_checkpoint = 0  # enables saving checkpoints
+    continue_from = ""  # model to continue from  # TODO check this
+    model_path = ""  # TODO: Fix this
+    print_freq = 10
+    visdom = 0
+    visdom_epoch = 0
+    visdom_id = "Conv-TasNet Training"  # TODO: Check what this does
+    # evaluate
+    ev_use_cuda = 0
+    cal_sdr = 1
+
+    arg_solver = (use_cuda, epochs, half_lr, early_stop, max_grad_norm, save_folder, enable_checkpoint, continue_from,
+                  model_path, print_freq, visdom, visdom_epoch, visdom_id)
+
+    # Datasets and Dataloaders
+    tr_dataset = AudioDataset(train_dir, batch_size,
+                              sample_rate=sample_rate, segment=segment_len)
+    cv_dataset = AudioDataset(valid_dir, batch_size=1,  # 1 -> use less GPU memory to do cv
+                              sample_rate=sample_rate,
+                              segment=-1, cv_maxlen=cv_maxlen)  # -1 -> use full audio
     tr_loader = AudioDataLoader(tr_dataset, batch_size=1,
-                                shuffle=args.shuffle,
-                                num_workers=args.num_workers)
+                                shuffle=shuffle,
+                                num_workers=num_workers)
     cv_loader = AudioDataLoader(cv_dataset, batch_size=1,
                                 num_workers=0)
     data = {'tr_loader': tr_loader, 'cv_loader': cv_loader}
     # model
-    model = ConvTasNet(args.N, args.L, args.B, args.H, args.P, args.X, args.R,
-                       args.C, norm_type=args.norm_type, causal=args.causal,
-                       mask_nonlinear=args.mask_nonlinear)
+    model = ConvTasNet(N, L, B, H, P, X, R,
+                       C, norm_type=norm_type, causal=causal,
+                       mask_nonlinear=mask_nonlinear)
     print(model)
-    if args.use_cuda:
+    if use_cuda:
         model = torch.nn.DataParallel(model)
         model.cuda()
     # optimizer
-    if args.optimizer == 'sgd':
-        optimizier = torch.optim.SGD(model.parameters(),
-                                     lr=args.lr,
-                                     momentum=args.momentum,
-                                     weight_decay=args.l2)
-    elif args.optimizer == 'adam':
-        optimizier = torch.optim.Adam(model.parameters(),
-                                      lr=args.lr,
-                                      weight_decay=args.l2)
+    if optimizer_type == 'sgd':
+        optimizer = torch.optim.SGD(model.parameters(),
+                                    lr=lr,
+                                    momentum=momentum,
+                                    weight_decay=l2)
+    elif optimizer_type == 'adam':
+        optimizer = torch.optim.Adam(model.parameters(),
+                                     lr=lr,
+                                     weight_decay=l2)
     else:
         print("Not support optimizer")
         return
 
     # solver
-    solver = Solver(data, model, optimizier, args)
+    solver = Solver(data, model, optimizer, arg_solver)  # TODO: Fix solver thing
     solver.train()
 
 
 if __name__ == '__main__':
-    args = parser.parse_args()
-    print(args)
-    main(args)
-
+    print('train main')
+    # args = parser.parse_args()
+    # print(args)
+    # train(args)

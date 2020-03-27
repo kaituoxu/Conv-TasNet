@@ -10,7 +10,8 @@
 # After that, modify `data` and run from stage 2.
 wsj0_origin=/home/ktxu/workspace/data/CSR-I-WSJ0-LDC93S6A
 wsj0_wav=/home/ktxu/workspace/data/wsj0-wav/wsj0
-data=/home/ktxu/workspace/data/wsj-mix/2speakers/wav8k/min/
+#data=/home/ktxu/workspace/data/wsj-mix/2speakers/wav8k/min/
+data=C:/Users/Ofek/PycharmProjects/Conv-TasNet/egs/wsj0-mix/2speakers/wav8k/min/
 stage=1  # Modify this to control to start from which stage
 # -- END
 

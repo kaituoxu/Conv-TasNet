@@ -9,39 +9,34 @@ import os
 import librosa
 
 
-def preprocess_one_dir(in_dir, out_dir, out_filename, sample_rate=8000):
+def preprocess_one_dir(data_dir, json_dir, json_filename, sample_rate=8000):
     file_infos = []
-    in_dir = os.path.abspath(in_dir)
-    wav_list = os.listdir(in_dir)
+    data_dir = os.path.abspath(data_dir)
+    wav_list = os.listdir(data_dir)
     for wav_file in wav_list:
         if not wav_file.endswith('.wav'):
             continue
-        wav_path = os.path.join(in_dir, wav_file)
+        wav_path = os.path.join(data_dir, wav_file)
         samples, _ = librosa.load(wav_path, sr=sample_rate)
         file_infos.append((wav_path, len(samples)))
-    if not os.path.exists(out_dir):
-        os.makedirs(out_dir)
-    with open(os.path.join(out_dir, out_filename + '.json'), 'w') as f:
+    if not os.path.exists(json_dir):
+        os.makedirs(json_dir)
+    with open(os.path.join(json_dir, json_filename + '.json'), 'w') as f:
         json.dump(file_infos, f, indent=4)
 
 
-def preprocess(args):
+def preprocess(data_dir, json_dir, sample_rate):
     for data_type in ['tr', 'cv', 'tt']:
         for speaker in ['mix', 's1', 's2']:
-            preprocess_one_dir(os.path.join(args.in_dir, data_type, speaker),
-                               os.path.join(args.out_dir, data_type),
+            preprocess_one_dir(os.path.join(data_dir, data_type, speaker),
+                               os.path.join(json_dir, data_type),
                                speaker,
-                               sample_rate=args.sample_rate)
+                               sample_rate=sample_rate)
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser("WSJ0 data preprocessing")
-    parser.add_argument('--in-dir', type=str, default=None,
-                        help='Directory path of wsj0 including tr, cv and tt')
-    parser.add_argument('--out-dir', type=str, default=None,
-                        help='Directory path to put output files')
-    parser.add_argument('--sample-rate', type=int, default=8000,
-                        help='Sample rate of audio file')
-    args = parser.parse_args()
-    print(args)
-    preprocess(args)
+
+    data_dir = "../egs/wsj0-mix/2speakers/wav8k/min/"  # TODO: Check if I should use min or max
+    json_dir = "../egs/wsj0-mix/2speakers/wav8k/min/"
+    sample_rate = 8000
+    preprocess(data_dir, json_dir, sample_rate)
