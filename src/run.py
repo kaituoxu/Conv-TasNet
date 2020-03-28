@@ -8,7 +8,7 @@ from src.data import AudioDataset, AudioDataLoader
 # Trying to imitate the run.sh script from the original github
 
 # I'm using the librispeech dataset, which comes in .flac type, so first thing use flac_to_wav.py
-# Then use the "script Making_list_for_mixture_like_wsj-matlab-Hindi.py" to create the txt file, and then
+# Then use the "script create_txt_file_like_wsj0.py" to create the txt file, and then
 # the matlab code to create the wsj0-2mix dataset
 
 data_dir = "../egs/wsj0-mix/2speakers/wav8k/min/"  # TODO: Check if I should use min or max
