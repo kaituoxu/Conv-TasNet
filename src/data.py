@@ -21,6 +21,7 @@ Output:
 import json
 import math
 import os
+import sys
 
 import numpy as np
 import torch
@@ -28,16 +29,16 @@ import torch.utils.data as data
 
 import librosa
 
-
 class AudioDataset(data.Dataset):
 
-    def __init__(self, json_dir, batch_size, sample_rate=8000, segment=4.0, cv_maxlen=8.0):
+    def __init__(self, json_dir, batch_size, sample_rate=8000, segment=4.0, cv_maxlen=8.0, max_hours=None):
         """
         Args:
             json_dir: directory including mix.json, s1.json and s2.json
             segment: duration of audio segment, when set to -1, use full audio
-
+            max_hours: number of hours to load into AudioDataset. if set to 1 - use everything
         xxx_infos is a list and each item is a tuple (wav_file, #samples)
+
         """
         super(AudioDataset, self).__init__()
         mix_json = os.path.join(json_dir, 'mix.json')
@@ -59,48 +60,64 @@ class AudioDataset(data.Dataset):
         if segment >= 0.0:
             # segment length and count dropped utts
             segment_len = int(segment * sample_rate)  # 4s * 8000/s = 32000 samples
-            drop_utt, drop_len = 0, 0
-            for _, sample in sorted_mix_infos: # Only counts, doesn't remove them
-                if sample < segment_len:
+            drop_utt, drop_len, total_utt, total_len = 0, 0, 0, 0
+            # Remove utts that are smaller than 4s or bigger than batch_size
+            for _, sample in sorted_mix_infos:  # Only counts, doesn't remove them
+                num_segments = math.ceil(sample / segment_len)
+                if sample < segment_len or num_segments > batch_size:
                     drop_utt += 1
                     drop_len += sample
-            print("Drop {} utts({:.2f} h) which is short than {} samples".format(
-                drop_utt, drop_len/sample_rate/36000, segment_len))
+                else:
+                    total_len += sample
+                    total_utt += 1
+            print("Dropped {} utts({:.2f} h) which are shorter than {} samples".format(
+                drop_utt, drop_len/sample_rate/3600, segment_len))
+            print("{} utts, total number of undropped hours: {:.2f} hours".format(
+                total_utt, total_len/sample_rate/(3600)))
+
             # generate minibach infomations
             minibatch = []
             start = 0
+            curr_num_hours = 0
             while True:
                 num_segments = 0
                 i_audio = start
                 part_mix, part_s1, part_s2 = [], [], []
+                # Until I created a full segment thing
                 while num_segments < batch_size and i_audio < len(sorted_mix_infos):
                     utt_len = int(sorted_mix_infos[i_audio][1])
                     if utt_len >= segment_len:  # skip too short utt
                         num_segments += math.ceil(utt_len / segment_len)
                         # Ensure num_segments is less than batch_size
 
-                        # TODO: Change this so it only takes 4 segments. currently ignores tons of data. every audio
-                        #  that is longer than 4sec is ignored: https://github.com/kaituoxu/Conv-TasNet/issues/20
+                        # TODO: currently ignores tons of data. every audio that is shorter than 4s or longer than
+                        #  batch_length* segment_len is ignored: https://github.com/kaituoxu/Conv-TasNet/issues/20
 
                         if num_segments > batch_size:
-                            # if num_segments of 1st audio > batch_size, skip it
+                            # if num_segments of 1st audio > batch_size, skip it (it's bigger than batch_size alone)
                             if start == i_audio:
                                 i_audio += 1
                             break
                         part_mix.append(sorted_mix_infos[i_audio])
                         part_s1.append(sorted_s1_infos[i_audio])
                         part_s2.append(sorted_s2_infos[i_audio])
+
+                        curr_num_hours += utt_len / sample_rate / 3600
                     i_audio += 1
                 if len(part_mix) > 0:
                     minibatch.append([part_mix, part_s1, part_s2,
                                       sample_rate, segment_len])
+
                 if i_audio == len(sorted_mix_infos):
+                    break
+                if max_hours is not None and curr_num_hours > max_hours:
                     break
                 start = i_audio
             self.minibatch = minibatch
         else:  # Load full utterance but not segment for validation / test. happens when segment<0
             # generate minibatch infomations
             # TODO: fix the segments ignored, but this isn't as bad as train part
+            # TODO: Check how many hours cv actually uses
             minibatch = []
             start = 0
             while True:
@@ -163,7 +180,6 @@ def _collate_fn(batch):
 
 
 # Eval data part
-# TODO: Check why it doesn't use EvalDataset
 from src.preprocess import preprocess_one_dir
 
 
@@ -310,7 +326,6 @@ def pad_list(xs, pad_value):
 
 
 if __name__ == "__main__":
-    import sys
     json_dir, batch_size = sys.argv[1:3]
     dataset = AudioDataset(json_dir, int(batch_size))
     data_loader = AudioDataLoader(dataset, batch_size=1,

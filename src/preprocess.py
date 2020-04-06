@@ -7,13 +7,14 @@ import json
 import os
 
 import librosa
-
+from tqdm import tqdm
 
 def preprocess_one_dir(data_dir, json_dir, json_filename, sample_rate=8000):
     file_infos = []
     data_dir = os.path.abspath(data_dir)
     wav_list = os.listdir(data_dir)
-    for wav_file in wav_list:
+    print('Current list is:' + str(data_dir))
+    for wav_file in tqdm(wav_list):
         if not wav_file.endswith('.wav'):
             continue
         wav_path = os.path.join(data_dir, wav_file)

@@ -11,49 +11,37 @@ from mir_eval.separation import bss_eval_sources
 import numpy as np
 import torch
 
-from data import AudioDataLoader, AudioDataset
-from pit_criterion import cal_loss
-from conv_tasnet import ConvTasNet
-from utils import remove_pad
+from src.data import AudioDataLoader, AudioDataset
+from src.pit_criterion import cal_loss
+from src.conv_tasnet import ConvTasNet
+from src.utils import remove_pad
 
 
-parser = argparse.ArgumentParser('Evaluate separation performance using Conv-TasNet')
-parser.add_argument('--model_path', type=str, required=True,
-                    help='Path to model file created by training')
-parser.add_argument('--data_dir', type=str, required=True,
-                    help='directory including mix.json, s1.json and s2.json')
-parser.add_argument('--cal_sdr', type=int, default=0,
-                    help='Whether calculate SDR, add this option because calculation of SDR is very slow')
-parser.add_argument('--use_cuda', type=int, default=0,
-                    help='Whether use GPU')
-parser.add_argument('--sample_rate', default=8000, type=int,
-                    help='Sample rate')
-parser.add_argument('--batch_size', default=1, type=int,
-                    help='Batch size')
+
+def evaluate(model_path, data_dir, calc_sdr, use_cuda, sample_rate, batch_size):
 
 
-def evaluate(args):
     total_SISNRi = 0
     total_SDRi = 0
     total_cnt = 0
 
     # Load model
-    model = ConvTasNet.load_model(args.model_path)
+    model = ConvTasNet.load_model(model_path)
     print(model)
     model.eval()
-    if args.use_cuda:
+    if use_cuda:
         model.cuda()
 
     # Load data
-    dataset = AudioDataset(args.data_dir, args.batch_size,
-                           sample_rate=args.sample_rate, segment=-1)
+    dataset = AudioDataset(data_dir, batch_size,
+                           sample_rate=sample_rate, segment=-1)
     data_loader = AudioDataLoader(dataset, batch_size=1, num_workers=2)
 
     with torch.no_grad():
         for i, (data) in enumerate(data_loader):
             # Get batch data
             padded_mixture, mixture_lengths, padded_source = data
-            if args.use_cuda:
+            if use_cuda:
                 padded_mixture = padded_mixture.cuda()
                 mixture_lengths = mixture_lengths.cuda()
                 padded_source = padded_source.cuda()
@@ -71,7 +59,7 @@ def evaluate(args):
             for mix, src_ref, src_est in zip(mixture, source, estimate_source):
                 print("Utt", total_cnt + 1)
                 # Compute SDRi
-                if args.cal_sdr:
+                if calc_sdr:
                     avg_SDRi = cal_SDRi(src_ref, src_est, mix)
                     total_SDRi += avg_SDRi
                     print("\tSDRi={0:.2f}".format(avg_SDRi))
@@ -80,7 +68,7 @@ def evaluate(args):
                 print("\tSI-SNRi={0:.2f}".format(avg_SISNRi))
                 total_SISNRi += avg_SISNRi
                 total_cnt += 1
-    if args.cal_sdr:
+    if calc_sdr:
         print("Average SDR improvement: {0:.2f}".format(total_SDRi / total_cnt))
     print("Average SISNR improvement: {0:.2f}".format(total_SISNRi / total_cnt))
 
@@ -143,6 +131,11 @@ def cal_SISNR(ref_sig, out_sig, eps=1e-8):
 
 
 if __name__ == '__main__':
-    args = parser.parse_args()
-    print(args)
-    evaluate(args)
+    model_path = ""  # TODO: Add this
+    data_dir = "../egs/wsj0-mix/2speakers/wav8k/min/"  # TODO: Add this, includes jsons
+    calc_sdr = False  # sdr calc is slow
+    use_cuda = 1
+    sample_rate = 8000
+    batch_size = 3
+
+    evaluate(model_path, data_dir, calc_sdr, use_cuda, sample_rate, batch_size)

@@ -11,35 +11,23 @@ from src.data import AudioDataset, AudioDataLoader
 # Then use the "script create_txt_file_like_wsj0.py" to create the txt file, and then
 # the matlab code to create the wsj0-2mix dataset
 
-data_dir = "../egs/wsj0-mix/2speakers/wav8k/min/"  # TODO: Check if I should use min or max
-json_dir = "../egs/wsj0-mix/2speakers/wav8k/min/"
-sample_rate = 8000
-# preprocess(data_dir, json_dir, sample_rate)
+# To open visdom, run this command: "python -m visdom.server", and then open http://localhost:8097
 
-#  TODO: Move some of these parameters to the train.py function
+data_dir = "../egs/wsj0-mix/2speakers/wav8k/min/"
+json_dir = "../egs/wsj0-mix/2speakers/wav8k/min/"
+
 train_dir = data_dir + "tr"
 valid_dir = data_dir + "cv"
 test_dir = data_dir + "tt"
+sample_rate = 8000
 
-
+#  TODO: Move some of these parameters to the train.py function
 
 
 id = 0  # TODO: What is this
-epochs = 100   # TODO: Change this before run
-half_lr = 1  # TODO: What is this
-early_stop = 0
-max_norm = 5  # TODO: What is this
-# minibatch
-shuffle = 1
-batch_size = 3
-num_workers = 4
-# optimizer
-optimizer = "adam"
-lr = 1e-3
-momentum = 0
-l2 = 0
+epochs = 50  # TODO: Change this before run
+
 # save and visualize
-checkpoint = 0
 continue_from = ""
 print_freq = 10
 visdom = 0
@@ -52,11 +40,13 @@ cal_sdr = 1
 ngpu = 1  # TODO: What is this
 
 if __name__ == '__main__':
-    batch_size = 4
-    dataset = AudioDataset("../egs/wsj0-mix/2speakers/wav8k/min/tr", batch_size)
+    # preprocess(data_dir, json_dir, sample_rate)
+    #
+    batch_size = 3
+    num_workers = 4
+    dataset = AudioDataset(train_dir, batch_size)
     dataloader = AudioDataLoader(dataset, batch_size=1, num_workers=num_workers)
     for data in (dataloader):
         print('hello')
 
-
-
+    # train(data_dir, epochs)

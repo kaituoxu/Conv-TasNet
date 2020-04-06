@@ -3,9 +3,9 @@
 
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
+import torch.nn.functional as functional
 
-from utils import overlap_and_add
+from src.utils import overlap_and_add
 
 EPS = 1e-8
 
@@ -49,14 +49,14 @@ class ConvTasNet(nn.Module):
         Returns:
             est_source: [M, C, T]
         """
-        mixture_w = self.encoder(mixture)
-        est_mask = self.separator(mixture_w)
-        est_source = self.decoder(mixture_w, est_mask)
+        mixture_w = self.encoder(mixture)  # M x N x K
+        est_mask = self.separator(mixture_w)  # M x C x N x K
+        est_source = self.decoder(mixture_w, est_mask)  # M x C x T_conv
 
         # T changed after conv1d in encoder, fix it here
         T_origin = mixture.size(-1)
         T_conv = est_source.size(-1)
-        est_source = F.pad(est_source, (0, T_origin - T_conv))
+        est_source = functional.pad(est_source, (0, T_origin - T_conv))
         return est_source
 
     @classmethod
@@ -105,24 +105,27 @@ class Encoder(nn.Module):
         # 50% overlap
         self.conv1d_U = nn.Conv1d(1, N, kernel_size=L, stride=L // 2, bias=False)
 
-    def forward(self, mixture):
+    def forward(self, mix_wave):
         """
         Args:
-            mixture: [M, T], M is batch size, T is #samples
+            mix_wave: [M, T], M is batch size, T is #samples
         Returns:
             mixture_w: [M, N, K], where K = (T-L)/(L/2)+1 = 2T/L-1
         """
-        mixture = torch.unsqueeze(mixture, 1)  # [M, 1, T]
-        mixture_w = F.relu(self.conv1d_U(mixture))  # [M, N, K]
+        # L is the length of each mini frame, and K is the number of frames. conv basically
+        # transfers from L length base to N length base, using N vectors (N dimensions).
+        # one conv filter is basically taking one basis vector on all K frames
+        # TODO: Might not need relu for encoder
+        mix_wave = torch.unsqueeze(mix_wave, 1)  # [M, 1, T]
+        mixture_w = functional.relu(self.conv1d_U(mix_wave))  # [M, N, K]
         return mixture_w
-
 
 class Decoder(nn.Module):
     def __init__(self, N, L):
         super(Decoder, self).__init__()
         # Hyper-parameter
         self.N, self.L = N, L
-        # Components
+        # N - in features. L - out features. works on all K vectors.
         self.basis_signals = nn.Linear(N, L, bias=False)
 
     def forward(self, mixture_w, est_mask):
@@ -133,12 +136,13 @@ class Decoder(nn.Module):
         Returns:
             est_source: [M, C, T]
         """
-        # D = W * M
+        # D = W * M - from Tasnet paper
         source_w = torch.unsqueeze(mixture_w, 1) * est_mask  # [M, C, N, K]
-        source_w = torch.transpose(source_w, 2, 3) # [M, C, K, N]
+        source_w = torch.transpose(source_w, 2, 3)  # [M, C, K, N] - K vectors, each vector length N
         # S = DV
-        est_source = self.basis_signals(source_w)  # [M, C, K, L]
-        est_source = overlap_and_add(est_source, self.L//2) # M x C x T
+        est_source = self.basis_signals(source_w)  # [M, C, K, L] - K vectors, each vector length L
+        # we now have K vectors of length L with overlap of L/2 cause of stride. now to fix it:
+        est_source = overlap_and_add(est_source, self.L//2)  # M x C x T
         return est_source
 
 
@@ -164,11 +168,13 @@ class TemporalConvNet(nn.Module):
         self.mask_nonlinear = mask_nonlinear
         # Components
         # [M, N, K] -> [M, N, K]
+        # TODO: Check why this is channelwise and not global
         layer_norm = ChannelwiseLayerNorm(N)
         # [M, N, K] -> [M, B, K]
         bottleneck_conv1x1 = nn.Conv1d(N, B, 1, bias=False)
         # [M, B, K] -> [M, B, K]
         repeats = []
+        # TODO: No skip connections, and no RELU before mask_1x1_conv in this implementation (there should be)
         for r in range(R):
             blocks = []
             for x in range(X):
@@ -201,9 +207,9 @@ class TemporalConvNet(nn.Module):
         score = self.network(mixture_w)  # [M, N, K] -> [M, C*N, K]
         score = score.view(M, self.C, N, K) # [M, C*N, K] -> [M, C, N, K]
         if self.mask_nonlinear == 'softmax':
-            est_mask = F.softmax(score, dim=1)
+            est_mask = functional.softmax(score, dim=1)
         elif self.mask_nonlinear == 'relu':
-            est_mask = F.relu(score)
+            est_mask = functional.relu(score)
         else:
             raise ValueError("Unsupported mask non-linear function")
         return est_mask
@@ -357,9 +363,9 @@ class GlobalLayerNorm(nn.Module):
 
 if __name__ == "__main__":
     torch.manual_seed(123)
-    M, N, L, T = 2, 3, 4, 12
+    M, N, L, T = 4, 256, 20, 32000
     K = 2*T//L-1
-    B, H, P, X, R, C, norm_type, causal = 2, 3, 3, 3, 2, 2, "gLN", False
+    B, H, P, X, R, C, norm_type, causal = 256, 512, 3, 8, 4, 2, "gLN", False
     mixture = torch.randint(3, (M, T))
     # test Encoder
     encoder = Encoder(L, N)

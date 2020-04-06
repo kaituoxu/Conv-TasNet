@@ -3,10 +3,11 @@
 
 import os
 import time
+from tqdm import tqdm
 
 import torch
 
-from pit_criterion import cal_loss
+from src.pit_criterion import cal_loss
 
 
 class Solver(object):
@@ -29,12 +30,13 @@ class Solver(object):
         self.max_norm = max_grad_norm
         # save and load model
         self.save_folder = save_folder
-        self.checkpoint = enable_checkpoint
+        self.enable_checkpoint = enable_checkpoint
         self.continue_from = continue_from
         self.model_path = model_path
         # logging
         self.print_freq = print_freq
         # visualizing loss using visdom
+        # TODO: Change size of tr_loss and cv_loss since my epochs are bigger
         self.tr_loss = torch.Tensor(self.epochs)
         self.cv_loss = torch.Tensor(self.epochs)
         self.visdom = visdom
@@ -72,7 +74,7 @@ class Solver(object):
 
     def train(self):
         # Train model multi-epoches
-        for epoch in range(self.start_epoch, self.epochs):
+        for epoch in tqdm(range(self.start_epoch, self.epochs)):
             # Train one epoch
             print("Training...")
             self.model.train()  # Turn on BatchNorm & Dropout
@@ -85,7 +87,8 @@ class Solver(object):
             print('-' * 85)
 
             # Save model each epoch
-            if self.checkpoint:
+            # TODO: Change to save less than each epoch
+            if self.enable_checkpoint:
                 file_path = os.path.join(
                     self.save_folder, 'epoch%d.pth.tar' % (epoch + 1))
                 torch.save(self.model.module.serialize(self.model.module,
@@ -137,7 +140,7 @@ class Solver(object):
                                                        tr_loss=self.tr_loss,
                                                        cv_loss=self.cv_loss),
                            file_path)
-                print("Find better validated model, saving to %s" % file_path)
+                print("Found better validated model, saving to %s" % file_path)
 
             # visualizing loss using visdom
             if self.visdom:

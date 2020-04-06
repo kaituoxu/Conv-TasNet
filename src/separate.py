@@ -9,55 +9,38 @@ import os
 import librosa
 import torch
 
-from data import EvalDataLoader, EvalDataset
-from conv_tasnet import ConvTasNet
-from utils import remove_pad
+from src.data import EvalDataLoader, EvalDataset
+from src.conv_tasnet import ConvTasNet
+from src.utils import remove_pad
 
 
-parser = argparse.ArgumentParser('Separate speech using Conv-TasNet')
-parser.add_argument('--model_path', type=str, required=True,
-                    help='Path to model file created by training')
-parser.add_argument('--mix_dir', type=str, default=None,
-                    help='Directory including mixture wav files')
-parser.add_argument('--mix_json', type=str, default=None,
-                    help='Json file including mixture wav files')
-parser.add_argument('--out_dir', type=str, default='exp/result',
-                    help='Directory putting separated wav files')
-parser.add_argument('--use_cuda', type=int, default=0,
-                    help='Whether use GPU to separate speech')
-parser.add_argument('--sample_rate', default=8000, type=int,
-                    help='Sample rate')
-parser.add_argument('--batch_size', default=1, type=int,
-                    help='Batch size')
-
-
-def separate(args):
-    if args.mix_dir is None and args.mix_json is None:
+def separate(model_path, mix_dir, mix_json, out_dir, use_cuda, sample_rate, batch_size):
+    if mix_dir is None and mix_json is None:
         print("Must provide mix_dir or mix_json! When providing mix_dir, "
               "mix_json is ignored.")
 
     # Load model
-    model = ConvTasNet.load_model(args.model_path)
+    model = ConvTasNet.load_model(model_path)
     print(model)
     model.eval()
-    if args.use_cuda:
+    if use_cuda:
         model.cuda()
 
     # Load data
-    eval_dataset = EvalDataset(args.mix_dir, args.mix_json,
-                               batch_size=args.batch_size,
-                               sample_rate=args.sample_rate)
-    eval_loader =  EvalDataLoader(eval_dataset, batch_size=1)
-    os.makedirs(args.out_dir, exist_ok=True)
+    eval_dataset = EvalDataset(mix_dir, mix_json,
+                               batch_size=batch_size,
+                               sample_rate=sample_rate)
+    eval_loader = EvalDataLoader(eval_dataset, batch_size=1)
+    os.makedirs(out_dir, exist_ok=True)
 
-    def write(inputs, filename, sr=args.sample_rate):
+    def write(inputs, filename, sr=sample_rate):
         librosa.output.write_wav(filename, inputs, sr)# norm=True)
 
     with torch.no_grad():
         for (i, data) in enumerate(eval_loader):
             # Get batch data
             mixture, mix_lengths, filenames = data
-            if args.use_cuda:
+            if use_cuda:
                 mixture, mix_lengths = mixture.cuda(), mix_lengths.cuda()
             # Forward
             estimate_source = model(mixture)  # [B, C, T]
@@ -66,7 +49,7 @@ def separate(args):
             mixture = remove_pad(mixture, mix_lengths)
             # Write result
             for i, filename in enumerate(filenames):
-                filename = os.path.join(args.out_dir,
+                filename = os.path.join(out_dir,
                                         os.path.basename(filename).strip('.wav'))
                 write(mixture[i], filename + '.wav')
                 C = flat_estimate[i].shape[0]
@@ -75,7 +58,13 @@ def separate(args):
 
 
 if __name__ == '__main__':
-    args = parser.parse_args()
-    print(args)
-    separate(args)
+    model_path = ""  # TODO: Add this
+    mix_dir = ""  # TODO: Add this, indlues dir for wav files
+    mix_json = "" # TODO: Includes json file
+    out_dir = ""
+    use_cuda = 1
+    sample_rate = 8000
+    batch_size = 4
+
+    separate(model_path, mix_dir, mix_json, out_dir, use_cuda, sample_rate, batch_size)
 

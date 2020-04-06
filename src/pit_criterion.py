@@ -49,6 +49,7 @@ def cal_si_snr_with_pit(source, estimate_source, source_lengths):
 
     # Step 2. SI-SNR with PIT
     # reshape to use broadcast
+    # s_target here is the real wave, not the s_target from the paper (S from paper)
     s_target = torch.unsqueeze(zero_mean_target, dim=1)  # [B, 1, C, T]
     s_estimate = torch.unsqueeze(zero_mean_estimate, dim=2)  # [B, C, 1, T]
     # s_target = <s', s>s / ||s||^2
@@ -68,7 +69,7 @@ def cal_si_snr_with_pit(source, estimate_source, source_lengths):
     index = torch.unsqueeze(perms, 2)
     perms_one_hot = source.new_zeros((*perms.size(), C)).scatter_(2, index, 1)
     # [B, C!] <- [B, C, C] einsum [C!, C, C], SI-SNR sum of each permutation
-    snr_set = torch.einsum('bij,pij->bp', [pair_wise_si_snr, perms_one_hot])
+    snr_set = torch.einsum('bij,pij->bp', [pair_wise_si_snr, perms_one_hot.float()])
     max_snr_idx = torch.argmax(snr_set, dim=1)  # [B]
     # max_snr = torch.gather(snr_set, 1, max_snr_idx.view(-1, 1))  # [B, 1]
     max_snr, _ = torch.max(snr_set, dim=1, keepdim=True)
@@ -115,7 +116,7 @@ def get_mask(source, source_lengths):
 
 if __name__ == "__main__":
     torch.manual_seed(123)
-    B, C, T = 2, 3, 12
+    B, C, T = 2, 3, 32000  # In this case B is the number of batches
     # fake data
     source = torch.randint(4, (B, C, T))
     estimate_source = torch.randint(4, (B, C, T))

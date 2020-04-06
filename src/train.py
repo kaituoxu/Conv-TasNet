@@ -14,6 +14,7 @@ from src.conv_tasnet import ConvTasNet
 def train(data_dir, epochs):
     # General config
     # Task related
+    json_dir = data_dir
     train_dir = data_dir + "tr"
     valid_dir = data_dir + "cv"
     sample_rate = 8000
@@ -35,14 +36,13 @@ def train(data_dir, epochs):
     mask_nonlinear = 'relu'
 
     use_cuda = 1
-    epochs = 30
 
     half_lr = 1  # Half the learning rate when there's a small improvement
     early_stop = 0  # Stop learning if no imporvement after 10 epochs
     max_grad_norm = 5  # gradient clipping
 
     shuffle = 1  # Shuffle every epoch
-    batch_size = 3
+    batch_size = 1
     num_workers = 4
     # optimizer
     optimizer_type = "adam"
@@ -51,7 +51,7 @@ def train(data_dir, epochs):
     l2 = 0  # Weight decay - l2 norm
 
     # save and visualize
-    save_folder = ""  # TODO: check this if I want checkpoints
+    save_folder = "../egs/models"
     enable_checkpoint = 0  # enables saving checkpoints
     continue_from = ""  # model to continue from  # TODO check this
     model_path = ""  # TODO: Fix this
