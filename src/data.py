@@ -113,6 +113,7 @@ class AudioDataset(data.Dataset):
                 if max_hours is not None and curr_num_hours > max_hours:
                     break
                 start = i_audio
+
             self.minibatch = minibatch
         else:  # Load full utterance but not segment for validation / test. happens when segment<0
             # generate minibatch infomations

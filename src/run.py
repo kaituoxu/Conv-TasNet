@@ -1,9 +1,8 @@
 import numpy as np
-
-# from src.conv_tasnet import
 from src.preprocess import preprocess
 from src.train import train
 from src.data import AudioDataset, AudioDataLoader
+import visdom
 
 # Trying to imitate the run.sh script from the original github
 
@@ -23,15 +22,14 @@ sample_rate = 8000
 
 #  TODO: Move some of these parameters to the train.py function
 
-
 id = 0  # TODO: What is this
-epochs = 50  # TODO: Change this before run
 
 # save and visualize
-continue_from = ""
+
+continue_from = ""  # If "" then doesnt use this
 print_freq = 10
-visdom = 0
-visdom_epoch = 0
+visdom_enabled = 1
+visdom_epoch = 1
 visdom_id = "Conv-TasNet Training"
 # evaluate
 ev_use_cuda = 0
@@ -39,14 +37,19 @@ cal_sdr = 1
 
 ngpu = 1  # TODO: What is this
 
-if __name__ == '__main__':
-    # preprocess(data_dir, json_dir, sample_rate)
-    #
-    batch_size = 3
-    num_workers = 4
-    dataset = AudioDataset(train_dir, batch_size)
-    dataloader = AudioDataLoader(dataset, batch_size=1, num_workers=num_workers)
-    for data in (dataloader):
-        print('hello')
+# if __name__ == '__main__':
 
-    # train(data_dir, epochs)
+# preprocess(data_dir, json_dir, sample_rate)
+epochs = 30
+
+batch_size = 3
+num_workers = 4
+# max_hours = 30
+# dataset = AudioDataset(train_dir, batch_size, max_hours=30)
+# dataloader = AudioDataLoader(dataset, batch_size=1, num_workers=num_workers)
+# for data in (dataloader):
+#   print('hello')
+
+train(data_dir, epochs)
+# vis = visdom.Visdom()
+# vis.text("Hello World2!!")
