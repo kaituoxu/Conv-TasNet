@@ -19,11 +19,11 @@
 
 
 data_type = {'cv','tt','tr'};
-wsj0root = 'C:/Users/Ofek/PycharmProjects/Conv-TasNet/egs/wsj0/'; % YOUR_PATH/, the folder containing wsj0/
-output_dir16k='C:/Users/Ofek/PycharmProjects/Conv-TasNet/egs/wsj0-mix/2speakers/wav16k';
-output_dir8k='C:/Users/Ofek/PycharmProjects/Conv-TasNet/egs/wsj0-mix/2speakers/wav8k';
+wsj0root = '/home/ofek.cohen/PycharmProjects/Conv-TasNet/egs/wsj0/'; % YOUR_PATH/, the folder containing wsj0/
+output_dir16k='/home/ofek.cohen/PycharmProjects/Conv-TasNet/egs/wsj0-mix/2speakers/wav16k';
+output_dir8k='/home/ofek.cohen/PycharmProjects/Conv-TasNet/egs/wsj0-mix/2speakers/wav8k';
 
-min_max = {'min','max'};
+min_max = {'min'};
 
 useaudioread = 0;
 if exist('audioread','file')

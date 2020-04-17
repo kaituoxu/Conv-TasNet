@@ -121,17 +121,22 @@ class AudioDataset(data.Dataset):
             # TODO: Check how many hours cv actually uses
             minibatch = []
             start = 0
+            curr_num_hours = 0
             while True:
                 i_audio = min(len(sorted_mix_infos), start + batch_size)
                 # Skip long audio to avoid out-of-memory issue
                 if int(sorted_mix_infos[start][1]) > cv_maxlen * sample_rate:
                     start = i_audio
                     continue
+                curr_num_hours += int(sorted_mix_infos[start][1])/ sample_rate / 3600
+
                 minibatch.append([sorted_mix_infos[start:i_audio],
                                   sorted_s1_infos[start:i_audio],
                                   sorted_s2_infos[start:i_audio],
                                   sample_rate, segment])
                 if i_audio == len(sorted_mix_infos):
+                    break
+                if max_hours is not None and curr_num_hours > max_hours:
                     break
                 start = i_audio
             self.minibatch = minibatch

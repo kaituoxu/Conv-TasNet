@@ -44,12 +44,14 @@ epochs = 30
 
 batch_size = 3
 num_workers = 4
-# max_hours = 30
+max_hours = 0.1
+# continue_from = save_folder + "/speech_seperation_first_try.pth"
+model_path = "test.pth"
 # dataset = AudioDataset(train_dir, batch_size, max_hours=30)
 # dataloader = AudioDataLoader(dataset, batch_size=1, num_workers=num_workers)
 # for data in (dataloader):
 #   print('hello')
 
-train(data_dir, epochs)
+train(data_dir, epochs, batch_size, model_path, max_hours=max_hours)
 # vis = visdom.Visdom()
 # vis.text("Hello World2!!")

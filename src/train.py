@@ -11,7 +11,7 @@ from src.solver import Solver
 from src.conv_tasnet import ConvTasNet
 
 
-def train(data_dir, epochs, max_hours=None):
+def train(data_dir, epochs, batch_size, model_path,  max_hours=None, continue_from=""):
     # General config
     # Task related
     json_dir = data_dir
@@ -42,7 +42,7 @@ def train(data_dir, epochs, max_hours=None):
     max_grad_norm = 5  # gradient clipping
 
     shuffle = 1  # Shuffle every epoch
-    batch_size = 3
+    # batch_size = 3
     num_workers = 4
     # optimizer
     optimizer_type = "adam"
@@ -53,8 +53,8 @@ def train(data_dir, epochs, max_hours=None):
     # save and visualize
     save_folder = "../egs/models"
     enable_checkpoint = 0  # enables saving checkpoints
-    continue_from = save_folder + "/speech_seperation_first_try.pth"  # model to continue from
-    model_path = "speech_separation_first_try_more_epochs.pth"  # TODO: Fix this
+    # continue_from = save_folder + "/speech_seperation_first_try.pth"  # model to continue from
+    # model_path = "speech_separation_first_try_more_epochs.pth"  # TODO: Fix this
     print_freq = 20000
     visdom_enabled = 1
     visdom_epoch = 1
@@ -68,7 +68,7 @@ def train(data_dir, epochs, max_hours=None):
                               sample_rate=sample_rate, segment=segment_len, max_hours=max_hours)
     cv_dataset = AudioDataset(valid_dir, batch_size=1,  # 1 -> use less GPU memory to do cv
                               sample_rate=sample_rate,
-                              segment=-1, cv_maxlen=cv_maxlen)  # -1 -> use full audio
+                              segment=-1, cv_maxlen=cv_maxlen, max_hours=max_hours)  # -1 -> use full audio
     tr_loader = AudioDataLoader(tr_dataset, batch_size=1,
                                 shuffle=shuffle,
                                 num_workers=num_workers)
