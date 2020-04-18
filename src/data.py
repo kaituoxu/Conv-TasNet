@@ -64,11 +64,11 @@ class AudioDataset(data.Dataset):
             # Remove utts that are smaller than 4s or bigger than batch_size
             for _, sample in sorted_mix_infos:  # Only counts, doesn't remove them
                 num_segments = math.ceil(sample / segment_len)
-                if sample < segment_len or num_segments > batch_size:
+                if sample < segment_len:
                     drop_utt += 1
                     drop_len += sample
                 else:
-                    total_len += sample
+                    total_len += min(sample, batch_size * segment_len)
                     total_utt += 1
             print("Dropped {} utts({:.2f} h) which are shorter than {} samples".format(
                 drop_utt, drop_len/sample_rate/3600, segment_len))
@@ -83,7 +83,7 @@ class AudioDataset(data.Dataset):
                 num_segments = 0
                 i_audio = start
                 part_mix, part_s1, part_s2 = [], [], []
-                # Until I created a full segment thing
+                # Run until I created a full batch
                 while num_segments < batch_size and i_audio < len(sorted_mix_infos):
                     utt_len = int(sorted_mix_infos[i_audio][1])
                     if utt_len >= segment_len:  # skip too short utt
@@ -93,20 +93,18 @@ class AudioDataset(data.Dataset):
                         # TODO: currently ignores tons of data. every audio that is shorter than 4s or longer than
                         #  batch_length* segment_len is ignored: https://github.com/kaituoxu/Conv-TasNet/issues/20
 
-                        if num_segments > batch_size:
+                        if num_segments > batch_size and start != i_audio:
                             # if num_segments of 1st audio > batch_size, skip it (it's bigger than batch_size alone)
-                            if start == i_audio:
-                                i_audio += 1
                             break
                         part_mix.append(sorted_mix_infos[i_audio])
                         part_s1.append(sorted_s1_infos[i_audio])
                         part_s2.append(sorted_s2_infos[i_audio])
 
-                        curr_num_hours += utt_len / sample_rate / 3600
+                        curr_num_hours += min(utt_len, segment_len * batch_size) / sample_rate / 3600
                     i_audio += 1
                 if len(part_mix) > 0:
                     minibatch.append([part_mix, part_s1, part_s2,
-                                      sample_rate, segment_len])
+                                      sample_rate, segment_len, batch_size])
 
                 if i_audio == len(sorted_mix_infos):
                     break
@@ -129,7 +127,7 @@ class AudioDataset(data.Dataset):
                 minibatch.append([sorted_mix_infos[start:i_audio],
                                   sorted_s1_infos[start:i_audio],
                                   sorted_s2_infos[start:i_audio],
-                                  sample_rate, segment])
+                                  sample_rate, segment, batch_size])
                 if i_audio == len(sorted_mix_infos):
                     break
                 start = i_audio
@@ -266,7 +264,7 @@ def load_mixtures_and_sources(batch):
         T varies from item to item.
     """
     mix_segments, sources_segments = [], []  # After we cut audio wave into batch_size parts ( maybe 4 )
-    mix_infos, s1_infos, s2_infos, sample_rate, segment_len = batch
+    mix_infos, s1_infos, s2_infos, sample_rate, segment_len, batch_size = batch
     # for each utterance
     for mix_info, s1_info, s2_info in zip(mix_infos, s1_infos, s2_infos):
         mix_path = mix_info[0]
@@ -282,10 +280,12 @@ def load_mixtures_and_sources(batch):
         utt_len = mix_wave.shape[-1]
         if segment_len >= 0:
             # create one segment
-            for i in range(0, utt_len - segment_len + 1, segment_len):
+            # Allow audio that is longer than batch_size to be used
+            max_index = min(utt_len - segment_len+1, (batch_size-1)*segment_len +1)
+            for i in range(0, max_index, segment_len):
                 mix_segments.append(mix_wave[i:i+segment_len])
                 sources_segments.append(s12_waves[i:i+segment_len, :])
-            if utt_len % segment_len != 0:
+            if utt_len % segment_len != 0 and utt_len < batch_size*segment_len:
                 mix_segments.append(mix_wave[-segment_len:])  # last segment that isn't full
                 sources_segments.append(s12_waves[-segment_len:, :])
         else:  # full utterance
