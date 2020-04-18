@@ -11,7 +11,7 @@ from src.solver import Solver
 from src.conv_tasnet import ConvTasNet
 
 
-def train(data_dir, epochs):
+def train(data_dir, epochs, batch_size, model_path,  max_hours=None, continue_from=""):
     # General config
     # Task related
     json_dir = data_dir
@@ -38,11 +38,11 @@ def train(data_dir, epochs):
     use_cuda = 1
 
     half_lr = 1  # Half the learning rate when there's a small improvement
-    early_stop = 0  # Stop learning if no imporvement after 10 epochs
+    early_stop = 1  # Stop learning if no imporvement after 10 epochs
     max_grad_norm = 5  # gradient clipping
 
     shuffle = 1  # Shuffle every epoch
-    batch_size = 1
+    # batch_size = 3
     num_workers = 4
     # optimizer
     optimizer_type = "adam"
@@ -53,25 +53,22 @@ def train(data_dir, epochs):
     # save and visualize
     save_folder = "../egs/models"
     enable_checkpoint = 0  # enables saving checkpoints
-    continue_from = ""  # model to continue from  # TODO check this
-    model_path = ""  # TODO: Fix this
-    print_freq = 10
-    visdom = 0
-    visdom_epoch = 0
+    # continue_from = save_folder + "/speech_seperation_first_try.pth"  # model to continue from
+    # model_path = "speech_separation_first_try_more_epochs.pth"  # TODO: Fix this
+    print_freq = 20000
+    visdom_enabled = 1
+    visdom_epoch = 1
     visdom_id = "Conv-TasNet Training"  # TODO: Check what this does
-    # evaluate
-    ev_use_cuda = 0
-    cal_sdr = 1
 
     arg_solver = (use_cuda, epochs, half_lr, early_stop, max_grad_norm, save_folder, enable_checkpoint, continue_from,
-                  model_path, print_freq, visdom, visdom_epoch, visdom_id)
+                  model_path, print_freq, visdom_enabled, visdom_epoch, visdom_id)
 
     # Datasets and Dataloaders
     tr_dataset = AudioDataset(train_dir, batch_size,
-                              sample_rate=sample_rate, segment=segment_len)
+                              sample_rate=sample_rate, segment=segment_len, max_hours=max_hours)
     cv_dataset = AudioDataset(valid_dir, batch_size=1,  # 1 -> use less GPU memory to do cv
                               sample_rate=sample_rate,
-                              segment=-1, cv_maxlen=cv_maxlen)  # -1 -> use full audio
+                              segment=-1, cv_maxlen=cv_maxlen, max_hours=max_hours)  # -1 -> use full audio
     tr_loader = AudioDataLoader(tr_dataset, batch_size=1,
                                 shuffle=shuffle,
                                 num_workers=num_workers)
@@ -82,7 +79,7 @@ def train(data_dir, epochs):
     model = ConvTasNet(N, L, B, H, P, X, R,
                        C, norm_type=norm_type, causal=causal,
                        mask_nonlinear=mask_nonlinear)
-    print(model)
+    # print(model)
     if use_cuda:
         model = torch.nn.DataParallel(model)
         model.cuda()

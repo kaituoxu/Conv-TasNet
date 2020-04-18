@@ -1,11 +1,12 @@
 import ffmpeg  # this is actually ffmpeg-python
 import os
 
+# Using Librispeech dataset, changes .flac files to .wav
 """ This can only be run in Linux"""
 
 
 input_path = "../egs/wsj0/flac_data"
-output_path = "../egs/wsj0/wsj0-hin/tr"
+output_path = "../egs/wsj0/wsj0-hin/cv"
 print('Starting flac to wav')
 i = 0
 for dir_name, sub_dir_list, file_name in os.walk(input_path):
@@ -19,6 +20,9 @@ for dir_name, sub_dir_list, file_name in os.walk(input_path):
                 stream = ffmpeg.input(input_file)
                 stream = ffmpeg.output(stream, output_file)
                 ffmpeg.run(stream)
+    # if i % 10000 == 0:
+    #     print("Number of files done: " + str(i))
+
 print('Done flac to wav, number of files:' + str(i))
 #
 
